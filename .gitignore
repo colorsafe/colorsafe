@@ -1,2 +1,7 @@
-dist
+*.egg-info
+*.pyc
+.swp
 MANIFEST
+build
+dist
+ignore
