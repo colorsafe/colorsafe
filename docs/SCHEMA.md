@@ -34,7 +34,7 @@ It is heavily inspired by its predecessor, [PaperBak](https://github.com/Rupan/p
 * Dot: The basic unit of ColorSafe data, represented by a number of channels (typically 3: RGB) possibly surrounded by whitepace separating it from its neighbors. The area fraction that the colored portion takes up is represented by F (typically 0.7). Also known as a ColorSafe dot.
 * Pixel: The rendered pixel in the encoding output image file. Typically there are many pixels per dot to support whitespace around each dot.
 * Printer dot: Unrelated to "dot" or "ColorSafeDot", the smallest unit of printing supported. Used for rendering output for printing.
-* Magic row: For purposes of separating the ECC region within each sector or marking the beginning of a metadata sector, a row consisting of alternating 5-bytes and A-bytes.
+* Magic row: For purposes of separating the ECC region within each sector or marking the beginning of a metadata sector, a row consisting of bytes that, after XOR, appear as 11001100.
 * ECC region: In each sector, there may optionally exist an error-correcting-code region, useful for fixing errors in the data during decoding.
 * ECC rate: The effective error-correcting rate, represented by E. For the typical E = 0.2, roughly 20% of all dots, pages, or sectors can be erased - errors with known locations, as in a removal - and the original data will still be recoverable. With unknown locations - as in a smudge or single misread bit - the error correction rate is half E, or 10%.
 * Data sector: Each data sector consists of the original data and optional error correction data.
