@@ -4,9 +4,9 @@ A colorized data storage scheme for printing on paper for archival purposes. Ins
 
 # Usage
 
-To install (may have explicitly specify version):
+To install:
 
-``pip install colorsafe``
+``python setup.py install``
 
 To encode a file with default settings:
 
