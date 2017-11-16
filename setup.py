@@ -1,10 +1,9 @@
-#from distutils.core import setup
 from setuptools import setup, find_packages
 
 setup(
   name = 'colorsafe',
   packages = find_packages(),
-  version = '0.1.0.dev1',
+  version = '0.1.0.dev2',
   description = 'A colorized data storage scheme for printing on paper.',
   long_description = 'A colorized data storage scheme for printing on paper.',
   author = 'Justin Bass',
@@ -17,7 +16,6 @@ setup(
     'unireedsolomon',
     'reportlab',
     'pillow',
-    'numpy' #opencv-python, not working
   ],
   classifiers = [],
 )

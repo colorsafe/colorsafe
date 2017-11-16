@@ -1,6 +1,6 @@
 # ColorSafe
 
-A colorized data storage scheme for printing on paper for archival purposes. Inspired by [PaperBak](https://github.com/Rupan/paperbak), ColorSafe is written with modern methods and technologies, is well-documented, and cross-platform. It aims to allow a few Megabytes of data (or more) to be stored on paper for a worst case scenario backup, for extremely long-term archiving, or just for fun. It's written in a simplistic fashion that, with best practices, can allow data to safely withstand the viccissitudes of technology changes over a long period of time.
+A data matrix for printing on paper, in grayscale or colors, for archival purposes. Inspired by [PaperBak](https://github.com/Rupan/paperbak), ColorSafe is written with modern methods and technologies and is cross-platform. It aims to allow a few Megabytes of data (or more) to be stored on paper for a worst case scenario backup, for extremely long-term archiving, or just for fun. With best practices, ColorSafe encoded data can safely withstand the viccissitudes of technology changes over long periods of time.
 
 # Usage
 
@@ -10,6 +10,10 @@ To install:
 
 To encode a file with default settings:
 
-``colorsafe input.txt``
+``colorsafe -c 1 encode input.txt``
 
-Decoding not yet supported
+This generates a pdf and png files with the black and white data matrix. To decode:
+
+``colorsafe -c 1 decode out0.png``
+
+Which outputs the data on the given page. Try -c 2 or 3 for colorized encoding/decoding modes.
