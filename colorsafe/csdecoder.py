@@ -1,11 +1,11 @@
-import cslib
+from colorsafe import ColorChannels, ColorSafeImageFiles
 from PIL import Image
 
 MaxColorVal = 255
 
 class ColorSafeDecoder:
     #Preprocess self.pixelList in place
-    def preprocess(self, images):
+    def preprocess(self, image):
         """
         Not yet implemented
 
@@ -32,18 +32,27 @@ class ColorSafeDecoder:
                 channelsRow = list()
                 for x in range(width):
                     pixel = pixels[x,y]
-                    channels = cslib.ColorChannels(pixel[0], pixel[1], pixel[2])
+
+                    try:
+                        channels = ColorChannels(pixel[0], pixel[1], pixel[2])
+                    except TypeError: # Grayscale
+                        channels = ColorChannels(pixel, pixel, pixel)
+
                     channels.multiplyShade([1.0 / MaxColorVal])
                     channelsRow.append(channels)
                 channelsList.append(channelsRow)
 
+            self.preprocess(channelsList)
+
             channelsPageList.append(channelsList)
 
-        self.preprocess(channelsPageList)
-
-        csFile = cslib.ColorSafeImageFiles()
-        data = csFile.decode(channelsPageList, args.colorDepth)
+        csFile = ColorSafeImageFiles()
+        data,metadata = csFile.decode(channelsPageList, args.colorDepth)
 
         f = open("outdata.txt","w")
         f.write(data)
+        f.close()
+
+        f = open("metadata.txt","w")
+        f.write(metadata)
         f.close()

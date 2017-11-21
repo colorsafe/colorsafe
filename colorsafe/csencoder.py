@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 from PIL import Image
-from cslib import ColorSafeImageFiles, Defaults
+from colorsafe import ColorSafeImageFiles, Defaults
 from reportlab.pdfgen import canvas
 import mmap
 
@@ -34,7 +34,11 @@ class ColorSafePdfFile:
                  borderSize = Defaults.borderSize,
                  gapSize = Defaults.gapSize,
                  filename = Defaults.filename,
+                 printerDpi = None,
                  fileExtension = Defaults.fileExtension):
+
+        if printerDpi:
+            self.printerDpi = printerDpi
 
         self.pixelsPerDot = pixelsPerDot
 
@@ -55,6 +59,8 @@ class ColorSafePdfFile:
                         gapSize,
                         filename,
                         fileExtension)
+
+        print "Max data per page:", str( csImages.csFile.maxData / 1000 ), "kB"
 
         for i,image in enumerate(csImages.images):
             outputFilename = csImages.filename + str(i) + "." + self.ImageExtension
@@ -111,7 +117,11 @@ class ColorSafeEncoder:
 
         mm = mmap.mmap(fileHandle.fileno(), 0, prot=mmap.PROT_READ)
 
-        pdfFile = ColorSafePdfFile(mm, colorDepth = args.colorDepth)
+        pdfFile = ColorSafePdfFile(mm,
+                                   colorDepth = args.colorDepth,
+                                   dotFillPixels = args.dotFillPixels,
+                                   pixelsPerDot = args.pixelsPerDot,
+                                   printerDpi = args.printerDpi)
 
         fileHandle.close()
 
