@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION_NAME = '0.1.0.dev3'
+VERSION_NAME = '0.1.0.dev4'
 
 setup(
   name = 'colorsafe',
@@ -11,8 +11,9 @@ setup(
   author = 'Justin Bass',
   author_email = 'colorsafeproject@gmail.com',
   url = 'https://github.com/colorsafe/colorsafe',
-  download_url = 'https://github.com/colorsafe/colorsafe/releases/download/v' + VERSION_NAME + '/colorsafe-' + VERSION_NAME + '.tar.gz',
-  keywords = ['data', 'matrix', 'paper', 'color', 'archival', 'storage', 'printing'],
+  download_url = 'https://github.com/colorsafe/colorsafe/releases/download/v' + VERSION_NAME + \
+                 '/colorsafe-' + VERSION_NAME + '.tar.gz',
+  keywords = ['data', 'matrix', 'paper', 'color', 'archival', 'storage', 'printing', 'colorized'],
   entry_points = { 'console_scripts': ['colorsafe=colorsafe.cmd:main'] },
   install_requires = [
     'unireedsolomon',

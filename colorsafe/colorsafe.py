@@ -27,6 +27,9 @@ class Constants:
     RevisionVersion = 0
     TotalPagesMaxBytes = 8 # 8 bytes per page maximum for the total-pages field
 
+    MaxSkew = 5
+    MaxSkewPerc = 0.002
+
 class Defaults:
     colorDepth = 1
     eccRate = 0.2
@@ -536,7 +539,7 @@ class Sector:
                     dbTemp += chr(c)
 
             rsBlock = rsEncoder.encode(dbTemp)
-            eccBlock = [ord(j) for j in rsBlock[-errorLength:]]
+            eccBlock = rsBlock[-errorLength:]
 
             eccData.extend(eccBlock)
 
@@ -551,6 +554,8 @@ class Sector:
             insertRow = DotRow()
             insertRow.encode( insertData, self.colorDepth, self.width, row )
             self.eccRows.append(insertRow)
+
+        self.eccData = eccData
 
     # For ECC swapping in CS file, to distribute across pages
     def getECCbit(self, i):
@@ -1076,29 +1081,15 @@ class ColorSafeImageFiles:
 
         # Put each sector's data into a cleaned channelsList, 1 set of channels per dot
         dataStr = ""
-        eccStr = ""
         metadataStr = ""
 
         for page in channelsPagesList:
-            # Get vertical sector bounds
-            verChannelShadeAvg = list()
-            for row in page:
-                channelShadeSum = 0
-                for channel in row:
-                    channelShadeSum += channel.getAverageShade()
-                verChannelShadeAvg.append(channelShadeSum/len(row))
+            # Get skews
+            verticalSkew = ColorSafeImageFiles.findSkew(page, True)
+            horizontalSkew = ColorSafeImageFiles.findSkew(page, False)
 
-            verticalBounds = self.findBounds(verChannelShadeAvg)
-
-            # Get horizontal sector bounds
-            horChannelShadeAvg = list()
-            for i in range(len(page[0])):
-                channelShadeSum = 0
-                for row in page:
-                    channelShadeSum += row[i].getAverageShade()
-                horChannelShadeAvg.append(channelShadeSum/len(page))
-
-            horizontalBounds = self.findBounds(horChannelShadeAvg)
+            verticalBounds = self.findSkewBounds(page, verticalSkew, True)
+            horizontalBounds = self.findSkewBounds(page, horizontalSkew, False)
 
             sectorsVertical = len(verticalBounds)
             sectorsHorizontal = len(horizontalBounds)
@@ -1113,6 +1104,7 @@ class ColorSafeImageFiles:
             sectorNum = -1
 
             # For each sector, beginning and ending at its gaps
+            sectorDamage = list()
             for topTemp, bottomTemp in verticalBounds:
                 for leftTemp, rightTemp in horizontalBounds:
                     sectorNum += 1
@@ -1218,31 +1210,25 @@ class ColorSafeImageFiles:
 
                     # Find the most likely dot start locations, TODO: Combine into one function
                     avgPixelsWidth = int(round(widthPerDot))
-                    minPixelsWidth = max(avgPixelsWidth - 1, 1)
-                    maxPixelsWidth = max(avgPixelsWidth + 1, 2) # TODO: Max 2 correct? Forces scan to be 2x resolution...
 
-                    rowDotStartLocations = list()
-                    currentLocation = 0
-                    for i in range(sectorWidth):
-                        # TODO: Account for the gap, find initial data start
-                        mnw = minPixelsWidth if i else 0
-                        possible = rowsBoundaryChanges[currentLocation + mnw : currentLocation + maxPixelsWidth + (1 if i else 0)]
-                        if possible:
-                            index = possible.index(max(possible))
-                        else:
-                            index = 0
-                        currentLocation += index + mnw
-                        rowDotStartLocations.append(currentLocation)
+                    if widthPerDot < 1.0: # Less than 1.0x resolution, cannot get all dots
+                        # TODO: Throw error, move further up in this function
+                        return
 
-                    # For ending, add average width to the end so that dot padding/fill is correct
-                    rowDotStartLocations.append(rowDotStartLocations[-1] + avgPixelsWidth)
+                    if widthPerDot == 1.0: # Exactly 1.0, e.g. original output, or perfectly scanned
+                        maxPixelsWidth = 1
+                    else:
+                        maxPixelsWidth = avgPixelsWidth + 1
+
+                    minPixelsWidth = max(avgPixelsWidth - 1, 1) # Cannot be less than 1
 
                     columnDotStartLocations = list()
                     currentLocation = 0
                     for i in range(sectorHeight):
                         # TODO: Account for the gap, find initial data start
                         mnw = minPixelsWidth if i else 0
-                        possible = columnsBoundaryChanges[currentLocation + mnw : currentLocation + maxPixelsWidth + (1 if i else 0)]
+                        possible = columnsBoundaryChanges[currentLocation + mnw : currentLocation + maxPixelsWidth + \
+                            (1 if i else 0)]
                         if possible:
                             index = possible.index(max(possible))
                         else:
@@ -1253,12 +1239,29 @@ class ColorSafeImageFiles:
                     # For ending, add average width to the end so that dot padding/fill is correct
                     columnDotStartLocations.append(columnDotStartLocations[-1] + avgPixelsWidth)
 
+                    rowDotStartLocations = list()
+                    currentLocation = 0
+                    for i in range(sectorWidth):
+                        # TODO: Account for the gap, find initial data start
+                        mnw = minPixelsWidth if i else 0
+                        possible = rowsBoundaryChanges[currentLocation + mnw : currentLocation + maxPixelsWidth + \
+                            (1 if i else 0)]
+                        if possible:
+                            index = possible.index(max(possible))
+                        else:
+                            index = 0
+                        currentLocation += index + mnw
+                        rowDotStartLocations.append(currentLocation)
+
+                    # For ending, add average width to the end so that dot padding/fill is correct
+                    rowDotStartLocations.append(rowDotStartLocations[-1] + avgPixelsWidth)
+
                     #perc = str(int(100.0 * sectorNum / (sectorsHorizontal*sectorsVertical))) + "%"
 
                     minVals = [1.0, 1.0, 1.0]
                     maxVals = [0.0, 0.0, 0.0]
                     shadeBuckets = list()
-                    BucketNum = 20 # TODO: Calculate dynamically?
+                    BucketNum = 40 # TODO: Calculate dynamically?
                     for i in range(BucketNum):
                         shadeBuckets.append(0)
                         
@@ -1313,23 +1316,27 @@ class ColorSafeImageFiles:
 
                     # Get shade maxima locations, starting from each side
                     shadeMaximaLeft = 0
-                    for i in range(1, BucketNum):
-                        if shadeBuckets[i] < shadeBuckets[i-1]:
+                    for i in range(2, BucketNum):
+                        if shadeBuckets[i] < shadeBuckets[i-1] and shadeBuckets[i] < shadeBuckets[i-2]:
                             shadeMaximaLeft = i-1
                             break
 
                     shadeMaximaRight = BucketNum
-                    for i in range(1, BucketNum)[::-1]:
-                        if shadeBuckets[i] > shadeBuckets[i-1]:
+                    for i in range(2, BucketNum)[::-1]:
+                        if shadeBuckets[i] > shadeBuckets[i-1] and shadeBuckets[i] > shadeBuckets[i-2]:
                             shadeMaximaRight = i
                             break
 
                     # Get shade minima between maxima
-                    shadeMinima = 5
+                    shadeMinimaVal = max(shadeBuckets[shadeMaximaLeft], shadeBuckets[shadeMaximaRight])
+
+                    # A good default, in case of a single maxima, or two very close
+                    shadeMinima = (shadeMaximaLeft + shadeMaximaRight) / 2
+
                     for i in range(shadeMaximaLeft + 1, shadeMaximaRight):
-                        if shadeBuckets[i] < shadeBuckets[i-1] and shadeBuckets[i] < shadeBuckets[i+1]:
+                        if shadeBuckets[i] < shadeMinimaVal:
+                            shadeMinimaVal = shadeBuckets[i]
                             shadeMinima = i
-                            break
 
                     s = Sector()
                     dataRows = Sector.getDataRowCount(sectorHeight, eccRate)
@@ -1338,27 +1345,44 @@ class ColorSafeImageFiles:
                     s.decode(channelsList, colorDepth, sectorHeight, sectorWidth, dataRows, eccRate, thresholdWeight)
 
                     outData = "".join([chr(i) for i in s.dataRows])
-                    eccData = "".join([chr(i) for i in s.eccRows])
+                    eccData = "".join([chr(0xff - i) for i in s.eccRows]) # TODO: Why is ecc inverted?
 
                     # Perform error correction, return uncorrected RS block on failure
-                    # TODO: Recognize error data separately from normal data, to improve accuracy
                     correctedData = ""
+                    damage = 0
                     dindex = 0
                     eindex = 0
                     for i,dbs in enumerate(s.dataBlockSizes):
                         ebs = s.eccBlockSizes[i]
-                        uncorrectedStr = outData[dindex:dindex+dbs] + eccData[eindex:eindex+ebs]
-                        rsEncoder = RSCoder(dbs+ebs, dbs)
+                        rsBlockData = outData[dindex:dindex+dbs]
+                        rsBlockEccData = eccData[eindex:eindex+ebs]
+                        uncorrectedStr = rsBlockData + rsBlockEccData
 
-                        try:
-                            correctedStr = rsEncoder.decode(uncorrectedStr)[0]
-                        except RSCodecError:
-                            correctedStr = outData[dindex:dindex+dbs]
+                        rsDecoder = RSCoder(dbs+ebs, dbs)
+
+                        correctedStr = rsBlockData
+
+                        # An empty or all-0's string is invalid.
+                        if len(uncorrectedStr) and any(ord(u) for u in uncorrectedStr):
+                            rsOutput = None
+
+                            try:
+                                rsOutput = rsDecoder.decode(uncorrectedStr)
+                                if rsOutput and len(rsOutput):
+                                    correctedStr = rsOutput[0]
+                                    for corrIter,corrChar in enumerate(rsOutput[0]):
+                                        if corrChar != uncorrectedStr[corrIter]:
+                                            damage += 1
+                            # More errors than can be corrected. Set damage to total number of blocks.
+                            except RSCodecError:
+                                damage = dataRows*sectorWidth/Constants.ByteSize
 
                         correctedData += correctedStr
                     
                         dindex += dbs
                         eindex += ebs
+
+                    sectorDamage.append(float(damage)/(dataRows*sectorWidth/Constants.ByteSize))
 
                     outData = correctedData
 
@@ -1366,9 +1390,11 @@ class ColorSafeImageFiles:
                     magicRow = DotRow.getMagicRowBytes(colorDepth, sectorWidth)
                     if s.dataRows[:len(magicRow)] != magicRow:
                         dataStr += outData
-                        eccStr += eccData
                     else:
-                        metadataStr += outData + "\n\n"
+                        metadataStr += str(sectorNum) + "\n" + outData + "\n\n"
+
+        if len(sectorDamage):
+            self.sectorDamageAvg = sum(sectorDamage) / len(sectorDamage)
 
         # TODO: Need to place sectors in Page objects, then each page in a CSFile, then call CSFile.decode()
 
@@ -1376,8 +1402,93 @@ class ColorSafeImageFiles:
 
         return dataStr, metadataStr
 
-    #TODO: Consider moving this logic to a new ChannelsGrid object
-    def findBounds(self, l):
+    def normalize(self, val, minVal, maxVal):
+        return (val - minVal) / (maxVal - minVal)
+
+    @staticmethod
+    def findSkew(page, vertical = True, reverse = False):
+        """Find the a grid image's skew, based on the vertical (or horizontal) boolean
+
+        Vertical skew is the number of pixels skewed right on the bottom side (negative if left) if the top is constant
+        Horizontal skew is the number of pixels skewed down on the right side (negative if up) if the left is constant
+        """
+        # TODO: Binary search for first border would dramatically increase speed
+        # TODO: Search for two or more skew lines to improve accuracy? Scale isn't known yet, so this is tricky
+
+        dataDensity = 0.5
+
+        # Get length of column (or row) and the length of the axis perpendicular to it, row (or column)
+        alongLength = len(page if vertical else page[0]) # Along the axis specified by the vertical bool
+        perpLength = len(page[0] if vertical else page) # Perpendicular to the axis specified by the vertical bool
+
+        maxSkew = max(int(Constants.MaxSkewPerc * perpLength), Constants.MaxSkew)
+
+        # For each angle, find the minimum shade in the first border
+        minShade = 1.0
+        minShadeIter = perpLength if not reverse else 0
+        bestSkew = 0
+        for skew in range(-maxSkew, maxSkew+1):
+            slope = float(skew) / alongLength
+
+            # Choose perpendicular range bounds such that sloped line will not run off the page
+            perpBounds = range(min(0, skew), perpLength - max(0, skew))
+            if reverse:
+                perpBounds = perpBounds[::-1]
+
+            for perpIter in perpBounds:
+                # Don't check far past the first border coordinate, in order to speed up execution
+                if not reverse:
+                    breakCond = (perpIter > minShadeIter + 2*maxSkew)
+                else:
+                    breakCond = (perpIter < minShadeIter - 2*maxSkew)
+
+                if breakCond:
+                    break
+
+                skewLine = list()
+                for alongIter in range(0, alongLength):
+                    perpValue = int(alongIter * slope) + perpIter
+                    x = perpValue if vertical else alongIter
+                    y = alongIter if vertical else perpValue
+
+                    pixelShade = page[y][x].getAverageShade()
+                    skewLine.append(pixelShade)
+
+                # TODO: Normalize
+                avgShade = sum(skewLine) / len(skewLine)
+                if avgShade < minShade and avgShade < dataDensity:
+                    minShade = avgShade
+                    bestSkew = skew
+                    minShadeIter = perpIter
+
+        return bestSkew
+
+    def findSkewBounds(self, page, skew, vertical = True):
+        """Get bounds including skew"""
+
+        # Get length of column (or row) and the length of the axis perpendicular to it, row (or column)
+        alongLength = len(page if vertical else page[0]) # Along the axis specified by the vertical bool
+        perpLength = len(page[0] if vertical else page) # Perpendicular to the axis specified by the vertical bool
+        slope = float(skew) / alongLength
+
+        channelShadeAvg = list()
+        for alongIter in range(0, alongLength):
+            channelShadeSum = 0
+            for perpIter in range(min(0, skew), perpLength - max(0, skew)):
+                perpValue = int(alongIter * slope) + perpIter
+                x = perpValue if vertical else alongIter
+                y = alongIter if vertical else perpValue
+
+                pixelShade = page[y][x].getAverageShade()
+                channelShadeSum += pixelShade
+
+            channelShadeAvg.append(channelShadeSum / perpLength)
+
+        return self.findBounds(channelShadeAvg)
+
+    # TODO: Consider moving this logic to a new ChannelsGrid object
+    # TODO: Set previousCount as average pixel width when called
+    def findBounds(self, l, previousCount = 3):
         """Given a 1D black and white grid matrix (one axis of a 2D grid matrix) return a list of beginnings and ends.
         A beginning is the first whitespace (gap) after any black border, and an end is the last whitespace (gap)
         before the next black border.
@@ -1399,12 +1510,12 @@ class ColorSafeImageFiles:
         begins = list()
         ends = list()
 
-        # Find ending
+        # Find ending border
         y = len(l)
         for i in l[::-1]:
             y -= 1
 
-            val = (i-minVal)/(maxVal-minVal) # normalize
+            val = self.normalize(i, minVal, maxVal)
 
             if ending == -1:
                 if val < lowBorderThreshold:
@@ -1413,54 +1524,52 @@ class ColorSafeImageFiles:
 
         if ending == -1:
             # Ending not found
+            # TODO: Throw error
             return None
 
-        # Find beginning and all begins/ends
+        # Find beginning border, and then all begin/end gaps that surround sector data
         y = -1
-        for ll in range(0,len(l)):
+        for i,val in enumerate(l):
             y += 1
 
-            val = (l[ll]-minVal)/(maxVal-minVal) # normalize
-            prevVal = (l[ll-1]-minVal)/(maxVal-minVal) # normalize
-            prev2Val = (l[ll-2]-minVal)/(maxVal-minVal) # normalize
-
-            if y >= ending:
+            # Stop if ending reached
+            if y > ending:
                 break
 
+            val = self.normalize(val, minVal, maxVal)
+
+            # Look for expected values to cross thresholds anywhere in the last previousCount values.
+            previousVals = [ self.normalize(l[i - shift - 1], minVal, maxVal) for shift in range(previousCount)]
+
+            # Look for beginning of border first
             if beginning == -1:
                 if val < lowBorderThreshold:
                     beginning = y
                     continue
 
-            # Begins and ends matched, looking for new begin
+            # Begins and ends matched, looking for new begin gap
             if len(begins) == len(ends):
                 # Boundary where black turns white
-                if val > highGapThreshold and (prevVal < lowBorderThreshold or prev2Val < lowBorderThreshold):
+                if val > highGapThreshold and any(v < lowBorderThreshold for v in previousVals):
                     begins.append(y)
                     continue
 
-            # More begins than ends, looking for new bottom
+            # More begins than ends, looking for new end gap
             if len(ends) < len(begins):
                 # Boundary where white turns black
-                if (prevVal > highGapThreshold or prev2Val > highGapThreshold) and \
-                   val < lowBorderThreshold and \
-                   y >= begins[-1] + minLengthSector:
-
-                    ends.append(y-1)
-                    continue
+                if val < lowBorderThreshold and any(v > highGapThreshold for v in previousVals):
+                    if y >= begins[-1] + minLengthSector:
+                        ends.append(y-1)
+                        continue
 
         if beginning == -1:
             # Beginning not found.
+            # TODO: Throw error
             return None
 
-        if len(begins) != len(ends):
-            # Begins and ends uneven, attempting correction
-
-            # Attempt correction
-            if len(begins) < len(ends):
-                ends = ends[0:len(begins)]
-            else:
-                begins = begins[0:len(ends)]
+        # If begins and ends don't match, correct by cutting off excess beginning
+        if len(begins) > len(ends):
+            begins = begins[0:len(ends)]
 
         bounds = list()
         for i in range(0, len(begins)):
