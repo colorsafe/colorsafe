@@ -29,7 +29,7 @@ Check out the images folder to see sample images of full pages.
 
 To install:
 
-``python setup.py install``
+``pip install colorsafe``
 
 To encode a file with default settings, e.g. 100dpi:
 
@@ -38,10 +38,10 @@ To encode a file with default settings, e.g. 100dpi:
 This generates a single pdf and multiple png files with the black and white
 data matrices, which can then be printed and stored.
 
-To decode (black/white only), scan each image back at 3x resolution, e.g.
+To decode (black/white only), scan the images back at 3x resolution, e.g.
 300dpi, and run decoding:
 
-``colorsafe decode scannedpage_0.bmp``
+``colorsafe decode scan_page0.bmp scan_page1.bmp``
 
 Which outputs the data on the given pages.
 

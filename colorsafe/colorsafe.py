@@ -776,7 +776,10 @@ class ColorSafeFile:
         self.dataRowCount = Sector.getDataRowCount(self.sectorHeight, self.eccRate)
 
         self.putDataSectors(self.data)
-        self.maxData = self.dataPerSector * self.sectorsVertical * self.sectorsHorizontal #TODO: Unused, add in header
+
+        #TODO: this should account for metadata
+        self.maxData = self.dataPerSector * self.sectorsVertical * self.sectorsHorizontal
+
         self.createMetadataSectors()
         self.sectorsToPages(self.dataSectors, self.metadataSectors)
 

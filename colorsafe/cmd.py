@@ -21,6 +21,8 @@ def main():
     encoder_parser.add_argument('-dfp', '--dotFillPixels', type=int, default=3, help='Pixels per dot to be colored in')
     encoder_parser.add_argument('-ppd', '--pixelsPerDot', type=int, default=4, help='Pixels per dot total')
     encoder_parser.add_argument('-dpi', '--printerDpi', type=int, default=100, help='Printed dots per inch')
+    encoder_parser.add_argument('--saveImages', action='store_true', default=False, \
+                                help='Also output the individual png files')
     encoder_parser.set_defaults(func=encode)
 
     decoder_parser = subparser.add_parser('decode', help='Decode a scanned ColorSafe image file')

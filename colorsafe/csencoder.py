@@ -4,6 +4,7 @@ from PIL import Image
 from colorsafe import ColorSafeImageFiles, Defaults
 from reportlab.pdfgen import canvas
 import mmap
+import os
 
 class ColorSafePdfFile:
     # All in inches
@@ -35,7 +36,8 @@ class ColorSafePdfFile:
                  gapSize = Defaults.gapSize,
                  filename = Defaults.filename,
                  printerDpi = None,
-                 fileExtension = Defaults.fileExtension):
+                 fileExtension = Defaults.fileExtension,
+                 saveImages = False):
 
         if printerDpi:
             self.printerDpi = printerDpi
@@ -62,21 +64,27 @@ class ColorSafePdfFile:
 
         print "Max data per page:", str( csImages.csFile.maxData / 1000 ), "kB"
 
+        imageFilenames = list()
         for i,image in enumerate(csImages.images):
             outputFilename = csImages.filename + str(i) + "." + self.ImageExtension
+            imageFilenames.append(outputFilename)
             imagePIL = Image.new('RGB', (len(image[0]),len(image)), "white")
             pixelsPIL = imagePIL.load() # create the pixel map
             for y,row in enumerate(image):
                 for x,dot in enumerate(row):
                     pixelsPIL[x,y] = (int(dot[0]*255), int(dot[1]*255), int(dot[2]*255))
 
-            #TODO: Remove temp image files, optionally
-            print "Saved", outputFilename
             imagePIL.save(outputFilename)
 
         self.csImages = csImages
 
         self.getPdfFile()
+
+        for f in imageFilenames:
+            if not saveImages:
+                os.remove(f)
+            else:
+                print "Saved", outputFilename
 
     def getPageProperties(self):
         # Full working height, including all regions outside of borders
@@ -121,7 +129,8 @@ class ColorSafeEncoder:
                                    colorDepth = args.colorDepth,
                                    dotFillPixels = args.dotFillPixels,
                                    pixelsPerDot = args.pixelsPerDot,
-                                   printerDpi = args.printerDpi)
+                                   printerDpi = args.printerDpi,
+                                   saveImages = args.saveImages)
 
         fileHandle.close()
 
