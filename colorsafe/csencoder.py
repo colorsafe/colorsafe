@@ -12,20 +12,23 @@ class ColorSafePdfFile:
     pageWidth = 8.5
     pageHeight = 11
 
-    bottomBorder = 0.1
-    leftBorder = 0.1
-    rightBorder = 0.1
-    topBorder = 0.2
+    borderTop = 0.2
+    borderBottom = 0.1
+    borderLeft = 0.1
+    borderRight = 0.1
     headerPadding = 0.1
 
     ImageExtension = "png"
     PdfExtension = "pdf"
 
-    # TODO: Support an encoding mode that has accurate dpi (based on pixelsPerDot, not on dots)
     def __init__(self,
                  data,
                  pageHeight = pageHeight,
                  pageWidth = pageWidth,
+                 borderTop = borderTop,
+                 borderBottom = borderBottom,
+                 borderLeft = borderLeft,
+                 borderRight = borderRight,
                  dotFillPixels = Defaults.dotFillPixels,
                  pixelsPerDot = Defaults.pixelsPerDot,
                  colorDepth = Defaults.colorDepth,
@@ -35,12 +38,17 @@ class ColorSafePdfFile:
                  borderSize = Defaults.borderSize,
                  gapSize = Defaults.gapSize,
                  filename = Defaults.filename,
-                 printerDpi = None,
+                 printerDpi = printerDpi,
                  fileExtension = Defaults.fileExtension,
                  saveImages = False):
 
-        if printerDpi:
-            self.printerDpi = printerDpi
+        self.printerDpi = printerDpi
+        self.pageHeight = pageHeight
+        self.pageWidth = pageWidth
+        self.borderTop = borderTop
+        self.borderBottom = borderBottom
+        self.borderLeft = borderLeft
+        self.borderRight = borderRight
 
         self.pixelsPerDot = pixelsPerDot
 
@@ -88,8 +96,8 @@ class ColorSafePdfFile:
 
     def getPageProperties(self):
         # Full working height, including all regions outside of borders
-        fullWorkingHeightInches = self.pageHeight - self.topBorder - self.bottomBorder - self.headerPadding
-        fullWorkingWidthInches = self.pageWidth - self.leftBorder - self.rightBorder
+        fullWorkingHeightInches = self.pageHeight - self.borderTop - self.borderBottom - self.headerPadding
+        fullWorkingWidthInches = self.pageWidth - self.borderLeft - self.borderRight
         self.fullWorkingHeightPixels = int( fullWorkingHeightInches * self.printerDpi * self.pixelsPerDot )
         self.fullWorkingWidthPixels = int( fullWorkingWidthInches * self.printerDpi * self.pixelsPerDot )
 
@@ -127,6 +135,12 @@ class ColorSafeEncoder:
 
         pdfFile = ColorSafePdfFile(mm,
                                    colorDepth = args.colorDepth,
+                                   pageHeight = args.pageHeight,
+                                   pageWidth = args.pageWidth,
+                                   borderTop = args.borderTop,
+                                   borderBottom = args.borderBottom,
+                                   borderLeft = args.borderLeft,
+                                   borderRight = args.borderRight,
                                    dotFillPixels = args.dotFillPixels,
                                    pixelsPerDot = args.pixelsPerDot,
                                    printerDpi = args.printerDpi,
