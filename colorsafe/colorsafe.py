@@ -262,7 +262,7 @@ class Dot:
 
         return bitList
 
-    def decode(self, channels, colorDepth, thresholdWeight):
+    def decode(self, channels, colorDepth, thresholdWeight = 0.0):
         """Takes in a list of channels, returns a list of bytes
         """
         channelNum = self.getChannelNum(colorDepth)
@@ -315,7 +315,7 @@ class DotByte:
         self.dots = dots
         return dots
 
-    def decode(self, channelsList, colorDepth, thresholdWeight):
+    def decode(self, channelsList, colorDepth, thresholdWeight = 0.0):
         """Takes in a list of exactly ByteSize (8) channels, returns a list of decoded bytes.
 
         Sets each dot's decoded data into colorDepth bytes.
@@ -396,7 +396,7 @@ class DotRow:
         self.dotBytes = dotBytes
         return dotBytes
 
-    def decode(self, channelsList, colorDepth, width, rowNumber, thresholdWeight, xorRow = True):
+    def decode(self, channelsList, colorDepth, width, rowNumber, thresholdWeight = 0.0, xorRow = True):
         """Takes in a list of width channels, returns a list of decoded bytes
         """
         if width % Constants.ByteSize != 0:
