@@ -1071,6 +1071,16 @@ class ColorSafeImageFiles:
 
         self.colorSafeFileToImages(self.csFile)
 
+    def getSkewSectorBounds(self, verticalBounds, horizontalBounds, verticalSkew, horizontalSkew):
+        bounds = list()
+
+        for top, bottom in verticalBounds:
+            for left, right in horizontalBounds:
+                bound = (top,bottom,left,right)
+                bounds.append(bound)
+
+        return bounds
+
     def decode(self, channelsPagesList, colorDepth):
         """Convert a list of pages channels into a list of sector channels, create decoded sectors, return data.
         Remove borders and gaps, scale down.
@@ -1078,7 +1088,6 @@ class ColorSafeImageFiles:
         Pages channels is a list (size totalPages) of lists (size workingHeight) of rows (list size workingWidth) of
         channels.
         """
-        # TODO: Need to shear image for x and y, not just rotate
         if not colorDepth or colorDepth < 0 or colorDepth > Constants.ColorDepthMax:
             colorDepth = Defaults.colorDepth
 
@@ -1094,8 +1103,9 @@ class ColorSafeImageFiles:
             verticalBounds = self.findSkewBounds(page, verticalSkew, True)
             horizontalBounds = self.findSkewBounds(page, horizontalSkew, False)
 
-            #print verticalBounds
-            #print horizontalBounds
+            bounds = self.getSkewSectorBounds(verticalBounds, horizontalBounds, verticalSkew, horizontalSkew)
+
+            print [str(i) + " " + str(value) for i,value in enumerate(bounds)]
 
             sectorsVertical = len(verticalBounds)
             sectorsHorizontal = len(horizontalBounds)
@@ -1111,296 +1121,264 @@ class ColorSafeImageFiles:
 
             # For each sector, beginning and ending at its gaps
             sectorDamage = list()
-            for topTemp, bottomTemp in verticalBounds:
-                for leftTemp, rightTemp in horizontalBounds:
-                    sectorNum += 1
-                    # Use page-average to calculate height/width, works better for small sector sizes
-                    # Rotation should even out on average
-                    heightPerDot = float(bottomTemp - topTemp + 1) / (sectorHeight + 2 * gapSize)
-                    widthPerDot = float(rightTemp - leftTemp + 1) / (sectorWidth + 2 * gapSize)
+            for topTemp, bottomTemp, leftTemp, rightTemp in bounds:
+                sectorNum += 1
+                # Use page-average to calculate height/width, works better for small sector sizes
+                # Rotation should even out on average
+                heightPerDot = float(bottomTemp - topTemp + 1) / (sectorHeight + 2 * gapSize)
+                widthPerDot = float(rightTemp - leftTemp + 1) / (sectorWidth + 2 * gapSize)
 
-                    # TODO: Combine into one function
-                    # Find real gaps, since small rotation across a large page may distort this.
-                    # Look within one-dot unit of pixels away
-                    bottommostTop = topTemp + int(round(heightPerDot))
-                    topmostTop = topTemp - int(round(heightPerDot))
-                    bottommostBottom = bottomTemp + int(round(heightPerDot))
-                    topmostBottom = bottomTemp - int(round(heightPerDot))
-                    rightmostLeft = leftTemp + int(round(widthPerDot))
-                    leftmostLeft = leftTemp - int(round(widthPerDot))
-                    rightmostRight = rightTemp + int(round(widthPerDot))
-                    leftmostRight = rightTemp - int(round(widthPerDot))
+                # Find real gaps, since small rotation across a large page may distort this.
+                # Look within one-dot unit of pixels away
+                bottommostTop = topTemp + int(round(heightPerDot))
+                topmostTop = topTemp - int(round(heightPerDot))
+                bottommostBottom = bottomTemp + int(round(heightPerDot))
+                topmostBottom = bottomTemp - int(round(heightPerDot))
+                rightmostLeft = leftTemp + int(round(widthPerDot))
+                leftmostLeft = leftTemp - int(round(widthPerDot))
+                rightmostRight = rightTemp + int(round(widthPerDot))
+                leftmostRight = rightTemp - int(round(widthPerDot))
 
-                    top = topTemp
-                    bottom = bottomTemp
-                    left = leftTemp
-                    right = rightTemp
+                gapThreshold = 0.75
 
-                    gapThreshold = 0.75 # TODO: Possibly needs to be bigger
+                top = self.getSectorBounds(page, topmostTop, bottommostTop, rightmostLeft, leftmostRight, \
+                                           gapThreshold)
+                bottom = self.getSectorBounds(page, topmostBottom, bottommostBottom, rightmostLeft, leftmostRight, \
+                                              gapThreshold, True, True)
+                left = self.getSectorBounds(page, leftmostLeft, rightmostLeft, bottommostTop, topmostBottom, \
+                                            gapThreshold, False)
+                right = self.getSectorBounds(page, leftmostRight, rightmostRight, bottommostTop, topmostBottom, \
+                                             gapThreshold, False, True)
 
-                    # Find top, going from border to gap (top to bottom)
-                    for y in range(topmostTop+1, bottommostTop+1):
-                        rowShadeSum = 0.0
-                        for x in range(rightmostLeft, leftmostRight+1):
-                            rowShadeSum += page[y][x].getAverageShade()
-                        rowShadeSum /= (leftmostRight - rightmostLeft)
-                        if rowShadeSum > gapThreshold:
-                            top = y
-                            break
+                top = top if top else topTemp
+                bottom = bottom if bottom else bottomTemp
+                left = left if left else leftTemp
+                right = right if right else rightTemp
 
-                    # Find bottom, going from border to gap (bottom to top)
-                    for y in range(topmostBottom+1, bottommostBottom+1)[::-1]:
-                        rowShadeSum = 0.0
-                        for x in range(rightmostLeft, leftmostRight+1):
-                            rowShadeSum += page[y][x].getAverageShade()
-                        rowShadeSum /= (leftmostRight - rightmostLeft)
-                        if rowShadeSum > gapThreshold:
-                            bottom = y
-                            break
+                # For all pixels in sector, mark and sum boundary changes for all rows and columns
+                # TODO: Generalize to multiple shades
+                #shadesPerChannel = 2
+                boundaryThreshold = 0.8
 
-                    # Find left, going from border to gap (left to right)
-                    for x in range(leftmostLeft+1, rightmostLeft+1):
-                        rowShadeSum = 0.0
-                        for y in range(bottommostTop, topmostBottom+1):
-                            rowShadeSum += page[y][x].getAverageShade()
-                        rowShadeSum /= (topmostBottom - bottommostTop)
-                        if rowShadeSum > gapThreshold:
-                            left = x
-                            break
+                rowsBoundaryChanges = list()
+                for x in range(left + 1, right + 1):
+                    allRowBoundaryChanges = 0
+                    for y in range(top, bottom + 1):
+                        current = page[y][x].getChannels()
+                        previous = page[y][x - 1].getChannels()
 
-                    # Find right, going from border to gap (right to left)
-                    for x in range(leftmostRight+1, rightmostRight+1)[::-1]:
-                        rowShadeSum = 0.0
-                        for y in range(bottommostTop, topmostBottom+1):
-                            rowShadeSum += page[y][x].getAverageShade()
-                        rowShadeSum /= (topmostBottom - bottommostTop)
-                        if rowShadeSum > gapThreshold:
-                            right = x
-                            break
+                        for i in range(len(current)):
+                            bucketCurrent = (0 if current[i] < boundaryThreshold else 1)
+                            bucketPrevious = (0 if previous[i] < boundaryThreshold else 1)
+                            # Get white to black only, seems to be more consistent
+                            if bucketCurrent != bucketPrevious and bucketCurrent == 0:
+                                allRowBoundaryChanges += 1
 
-                    # For all pixels in sector, mark and sum boundary changes for all rows and columns
-                    shadesPerChannel = 2
-                    boundaryThreshold = 0.8 # TODO: Generalize to multiple shades
+                    rowsBoundaryChanges.append(allRowBoundaryChanges)
 
-                    rowsBoundaryChanges = list()
-                    for x in range(left + 1, right + 1):
-                        allRowBoundaryChanges = 0
-                        for y in range(top, bottom + 1):
-                            current = page[y][x].getChannels()
-                            previous = page[y][x - 1].getChannels()
+                columnsBoundaryChanges = list()
+                for y in range(top + 1, bottom + 1):
+                    allColumnBoundaryChanges = 0
+                    for x in range(left, right + 1):
+                        current = page[y][x].getChannels()
+                        previous = page[y - 1][x].getChannels()
 
-                            for i in range(len(current)):
-                                bucketCurrent = (0 if current[i] < boundaryThreshold else 1)
-                                bucketPrevious = (0 if previous[i] < boundaryThreshold else 1)
-                                # Get white to black only, seems to be more consistent
-                                if bucketCurrent != bucketPrevious and bucketCurrent == 0:
-                                    allRowBoundaryChanges += 1
+                        for i in range(len(current)):
+                            bucketCurrent = (0 if current[i] < boundaryThreshold else 1)
+                            bucketPrevious = (0 if previous[i] < boundaryThreshold else 1)
+                            # Get white to black only, seems to be more consistent
+                            if bucketCurrent != bucketPrevious and bucketCurrent == 0:
+                                allColumnBoundaryChanges += 1
 
-                        rowsBoundaryChanges.append(allRowBoundaryChanges)
+                    columnsBoundaryChanges.append(allColumnBoundaryChanges)
 
-                    columnsBoundaryChanges = list()
-                    for y in range(top + 1, bottom + 1):
-                        allColumnBoundaryChanges = 0
-                        for x in range(left, right + 1):
-                            current = page[y][x].getChannels()
-                            previous = page[y - 1][x].getChannels()
+                # Find the most likely dot start locations, TODO: Combine into one function
+                avgPixelsWidth = int(round(widthPerDot))
 
-                            for i in range(len(current)):
-                                bucketCurrent = (0 if current[i] < boundaryThreshold else 1)
-                                bucketPrevious = (0 if previous[i] < boundaryThreshold else 1)
-                                # Get white to black only, seems to be more consistent
-                                if bucketCurrent != bucketPrevious and bucketCurrent == 0:
-                                    allColumnBoundaryChanges += 1
+                if widthPerDot < 1.0: # Less than 1.0x resolution, cannot get all dots
+                    # TODO: Throw error, move further up in this function
+                    return
 
-                        columnsBoundaryChanges.append(allColumnBoundaryChanges)
+                if widthPerDot == 1.0: # Exactly 1.0, e.g. original output, or perfectly scanned
+                    maxPixelsWidth = 1
+                else:
+                    maxPixelsWidth = avgPixelsWidth + 1
 
-                    # Find the most likely dot start locations, TODO: Combine into one function
-                    avgPixelsWidth = int(round(widthPerDot))
+                minPixelsWidth = max(avgPixelsWidth - 1, 1) # Cannot be less than 1
 
-                    if widthPerDot < 1.0: # Less than 1.0x resolution, cannot get all dots
-                        # TODO: Throw error, move further up in this function
-                        return
-
-                    if widthPerDot == 1.0: # Exactly 1.0, e.g. original output, or perfectly scanned
-                        maxPixelsWidth = 1
+                columnDotStartLocations = list()
+                currentLocation = 0
+                for i in range(sectorHeight):
+                    # TODO: Account for the gap, find initial data start
+                    mnw = minPixelsWidth if i else 0
+                    possible = columnsBoundaryChanges[currentLocation + mnw : currentLocation + maxPixelsWidth + \
+                        (1 if i else 0)]
+                    if possible:
+                        index = possible.index(max(possible))
                     else:
-                        maxPixelsWidth = avgPixelsWidth + 1
+                        index = 0
+                    currentLocation += index + mnw
+                    columnDotStartLocations.append(currentLocation)
 
-                    minPixelsWidth = max(avgPixelsWidth - 1, 1) # Cannot be less than 1
+                # For ending, add average width to the end so that dot padding/fill is correct
+                columnDotStartLocations.append(columnDotStartLocations[-1] + avgPixelsWidth)
 
-                    columnDotStartLocations = list()
-                    currentLocation = 0
-                    for i in range(sectorHeight):
-                        # TODO: Account for the gap, find initial data start
-                        mnw = minPixelsWidth if i else 0
-                        possible = columnsBoundaryChanges[currentLocation + mnw : currentLocation + maxPixelsWidth + \
-                            (1 if i else 0)]
-                        if possible:
-                            index = possible.index(max(possible))
-                        else:
-                            index = 0
-                        currentLocation += index + mnw
-                        columnDotStartLocations.append(currentLocation)
+                rowDotStartLocations = list()
+                currentLocation = 0
+                for i in range(sectorWidth):
+                    # TODO: Account for the gap, find initial data start
+                    mnw = minPixelsWidth if i else 0
+                    possible = rowsBoundaryChanges[currentLocation + mnw : currentLocation + maxPixelsWidth + \
+                        (1 if i else 0)]
+                    if possible:
+                        index = possible.index(max(possible))
+                    else:
+                        index = 0
+                    currentLocation += index + mnw
+                    rowDotStartLocations.append(currentLocation)
 
-                    # For ending, add average width to the end so that dot padding/fill is correct
-                    columnDotStartLocations.append(columnDotStartLocations[-1] + avgPixelsWidth)
+                # For ending, add average width to the end so that dot padding/fill is correct
+                rowDotStartLocations.append(rowDotStartLocations[-1] + avgPixelsWidth)
 
-                    rowDotStartLocations = list()
-                    currentLocation = 0
-                    for i in range(sectorWidth):
-                        # TODO: Account for the gap, find initial data start
-                        mnw = minPixelsWidth if i else 0
-                        possible = rowsBoundaryChanges[currentLocation + mnw : currentLocation + maxPixelsWidth + \
-                            (1 if i else 0)]
-                        if possible:
-                            index = possible.index(max(possible))
-                        else:
-                            index = 0
-                        currentLocation += index + mnw
-                        rowDotStartLocations.append(currentLocation)
+                #perc = str(int(100.0 * sectorNum / (sectorsHorizontal*sectorsVertical))) + "%"
 
-                    # For ending, add average width to the end so that dot padding/fill is correct
-                    rowDotStartLocations.append(rowDotStartLocations[-1] + avgPixelsWidth)
-
-                    #perc = str(int(100.0 * sectorNum / (sectorsHorizontal*sectorsVertical))) + "%"
-
-                    minVals = [1.0, 1.0, 1.0]
-                    maxVals = [0.0, 0.0, 0.0]
-                    shadeBuckets = list()
-                    BucketNum = 40 # TODO: Calculate dynamically?
-                    for i in range(BucketNum):
-                        shadeBuckets.append(0)
-                        
-                    # For each dot in the sector
-                    channelsList = list()
-                    for y in range(sectorHeight):
-                        for x in range(sectorWidth):
-                            pixelsTop = columnDotStartLocations[y] + top + 1
-                            pixelsBottom = columnDotStartLocations[y + 1] + top + 1
-                            pixelsLeft = rowDotStartLocations[x] + left + 1
-                            pixelsRight = rowDotStartLocations[x + 1] + left + 1
-
-                            # For each set of pixels corresponding to a dot
-                            dotPixels = list()
-                            for yPixel in range(pixelsTop, pixelsBottom):
-                                for xPixel in range(pixelsLeft, pixelsRight):
-                                    pixel = page[yPixel][xPixel]
-
-                                    dotPixels.append(pixel)
-
-                            # Average all pixels in the list, set into new ColorChannel
-                            R,G,B = 0,0,0 # TODO: Generalize to channels, place in ColorChannels
-                            for dotPixel in dotPixels:
-                                R1,G1,B1 = dotPixel.getChannels()
-                                R+=R1
-                                G+=G1
-                                B+=B1
-
-                            R/=len(dotPixels)
-                            G/=len(dotPixels)
-                            B/=len(dotPixels)
-                            c = ColorChannels(R,G,B)
-
-                            channelsList.append(c)
-
-                            # Get min and max vals for normalization
-                            vals = c.getChannels()
-                            for i,val in enumerate(vals):
-                                if val < minVals[i]:
-                                    minVals[i] = val
-                                if val > maxVals[i]:
-                                    maxVals[i] = val
-
-                            bucketNum = int(c.getAverageShade()*BucketNum) - 1
-                            shadeBuckets[bucketNum] += 1
-
-                    for i,channels in enumerate(channelsList):
-                        minVal = sum(minVals)/len(minVals)
-                        maxVal = sum(maxVals)/len(maxVals)
-                        channels.subtractShade(minVal)
-                        channels.multiplyShade([1.0/(maxVal-minVal)])
-
-                    # Get shade maxima locations, starting from each side
-                    shadeMaximaLeft = 0
-                    for i in range(2, BucketNum):
-                        if shadeBuckets[i] < shadeBuckets[i-1] and shadeBuckets[i] < shadeBuckets[i-2]:
-                            shadeMaximaLeft = i-1
-                            break
-
-                    shadeMaximaRight = BucketNum
-                    for i in range(2, BucketNum)[::-1]:
-                        if shadeBuckets[i] > shadeBuckets[i-1] and shadeBuckets[i] > shadeBuckets[i-2]:
-                            shadeMaximaRight = i
-                            break
-
-                    # Get shade minima between maxima
-                    shadeMinimaVal = max(shadeBuckets[shadeMaximaLeft], shadeBuckets[shadeMaximaRight])
-
-                    # A good default, in case of a single maxima, or two very close
-                    shadeMinima = (shadeMaximaLeft + shadeMaximaRight) / 2
-
-                    for i in range(shadeMaximaLeft + 1, shadeMaximaRight):
-                        if shadeBuckets[i] < shadeMinimaVal:
-                            shadeMinimaVal = shadeBuckets[i]
-                            shadeMinima = i
-
-                    s = Sector()
-                    dataRows = Sector.getDataRowCount(sectorHeight, eccRate)
-                    DefaultThresholdWeight = 0.5 # TODO: Move to Constants, or ColorChannels
-                    thresholdWeight = float(shadeMinima) / BucketNum - DefaultThresholdWeight
-                    s.decode(channelsList, colorDepth, sectorHeight, sectorWidth, dataRows, eccRate, thresholdWeight)
-
-                    outData = "".join([chr(i) for i in s.dataRows])
-                    eccData = "".join([chr(0xff - i) for i in s.eccRows]) # TODO: Why is ecc inverted?
-
-                    # Perform error correction, return uncorrected RS block on failure
-                    correctedData = ""
-                    damage = 0
-                    dindex = 0
-                    eindex = 0
-                    for i,dbs in enumerate(s.dataBlockSizes):
-                        ebs = s.eccBlockSizes[i]
-                        rsBlockData = outData[dindex:dindex+dbs]
-                        rsBlockEccData = eccData[eindex:eindex+ebs]
-                        uncorrectedStr = rsBlockData + rsBlockEccData
-
-                        rsDecoder = RSCoder(dbs+ebs, dbs)
-
-                        correctedStr = rsBlockData
-
-                        # An empty or all-0's string is invalid.
-                        if len(uncorrectedStr) and any(ord(u) for u in uncorrectedStr):
-                            rsOutput = None
-
-                            try:
-                                rsOutput = rsDecoder.decode(uncorrectedStr)
-                                if rsOutput and len(rsOutput):
-                                    correctedStr = rsOutput[0]
-                                    for corrIter,corrChar in enumerate(rsOutput[0]):
-                                        if corrChar != uncorrectedStr[corrIter]:
-                                            damage += 1
-                            # More errors than can be corrected. Set damage to total number of blocks.
-                            except RSCodecError:
-                                damage = dataRows*sectorWidth/Constants.ByteSize
-
-                        correctedData += correctedStr
+                minVals = [1.0, 1.0, 1.0]
+                maxVals = [0.0, 0.0, 0.0]
+                shadeBuckets = list()
+                BucketNum = 40 # TODO: Calculate dynamically?
+                for i in range(BucketNum):
+                    shadeBuckets.append(0)
                     
-                        dindex += dbs
-                        eindex += ebs
+                # For each dot in the sector
+                channelsList = list()
+                for y in range(sectorHeight):
+                    for x in range(sectorWidth):
+                        pixelsTop = columnDotStartLocations[y] + top + 1
+                        pixelsBottom = columnDotStartLocations[y + 1] + top + 1
+                        pixelsLeft = rowDotStartLocations[x] + left + 1
+                        pixelsRight = rowDotStartLocations[x + 1] + left + 1
 
-                    sectorDamage.append(float(damage)/(dataRows*sectorWidth/Constants.ByteSize))
+                        # For each set of pixels corresponding to a dot
+                        dotPixels = list()
+                        for yPixel in range(pixelsTop, pixelsBottom):
+                            for xPixel in range(pixelsLeft, pixelsRight):
+                                pixel = page[yPixel][xPixel]
 
-                    outData = correctedData
+                                dotPixels.append(pixel)
 
-                    #print sectorNum, top, left, bottom, right
+                        # Average all pixels in the list, set into new ColorChannel
+                        R,G,B = 0,0,0 # TODO: Generalize to channels, place in ColorChannels
+                        for dotPixel in dotPixels:
+                            R1,G1,B1 = dotPixel.getChannels()
+                            R+=R1
+                            G+=G1
+                            B+=B1
 
-                    # Add data to output if sector is not metadata
-                    magicRow = DotRow.getMagicRowBytes(colorDepth, sectorWidth)
-                    if s.dataRows[:len(magicRow)] != magicRow:
-                        #dataStr += outData
-                        dataStr += str(sectorNum) + "\n" + outData + "\n\n"
-                    else:
-                        metadataStr += str(sectorNum) + "\n" + outData + "\n\n"
+                        R/=len(dotPixels)
+                        G/=len(dotPixels)
+                        B/=len(dotPixels)
+                        c = ColorChannels(R,G,B)
+
+                        channelsList.append(c)
+
+                        # Get min and max vals for normalization
+                        vals = c.getChannels()
+                        for i,val in enumerate(vals):
+                            if val < minVals[i]:
+                                minVals[i] = val
+                            if val > maxVals[i]:
+                                maxVals[i] = val
+
+                        bucketNum = int(c.getAverageShade()*BucketNum) - 1
+                        shadeBuckets[bucketNum] += 1
+
+                for i,channels in enumerate(channelsList):
+                    minVal = sum(minVals)/len(minVals)
+                    maxVal = sum(maxVals)/len(maxVals)
+                    channels.subtractShade(minVal)
+                    channels.multiplyShade([1.0/(maxVal-minVal)])
+
+                # Get shade maxima locations, starting from each side
+                shadeMaximaLeft = 0
+                for i in range(2, BucketNum):
+                    if shadeBuckets[i] < shadeBuckets[i-1] and shadeBuckets[i] < shadeBuckets[i-2]:
+                        shadeMaximaLeft = i-1
+                        break
+
+                shadeMaximaRight = BucketNum
+                for i in range(2, BucketNum)[::-1]:
+                    if shadeBuckets[i] > shadeBuckets[i-1] and shadeBuckets[i] > shadeBuckets[i-2]:
+                        shadeMaximaRight = i
+                        break
+
+                # Get shade minima between maxima
+                shadeMinimaVal = max(shadeBuckets[shadeMaximaLeft], shadeBuckets[shadeMaximaRight])
+
+                # A good default, in case of a single maxima, or two very close
+                shadeMinima = (shadeMaximaLeft + shadeMaximaRight) / 2
+
+                for i in range(shadeMaximaLeft + 1, shadeMaximaRight):
+                    if shadeBuckets[i] < shadeMinimaVal:
+                        shadeMinimaVal = shadeBuckets[i]
+                        shadeMinima = i
+
+                s = Sector()
+                dataRows = Sector.getDataRowCount(sectorHeight, eccRate)
+                DefaultThresholdWeight = 0.5 # TODO: Move to Constants, or ColorChannels
+                thresholdWeight = float(shadeMinima) / BucketNum - DefaultThresholdWeight
+                s.decode(channelsList, colorDepth, sectorHeight, sectorWidth, dataRows, eccRate, thresholdWeight)
+
+                outData = "".join([chr(i) for i in s.dataRows])
+                eccData = "".join([chr(0xff - i) for i in s.eccRows]) # TODO: Why is ecc inverted?
+
+                # Perform error correction, return uncorrected RS block on failure
+                correctedData = ""
+                damage = 0
+                dindex = 0
+                eindex = 0
+                for i,dbs in enumerate(s.dataBlockSizes):
+                    ebs = s.eccBlockSizes[i]
+                    rsBlockData = outData[dindex:dindex+dbs]
+                    rsBlockEccData = eccData[eindex:eindex+ebs]
+                    uncorrectedStr = rsBlockData + rsBlockEccData
+
+                    rsDecoder = RSCoder(dbs+ebs, dbs)
+
+                    correctedStr = rsBlockData
+
+                    # An empty or all-0's string is invalid.
+                    if len(uncorrectedStr) and any(ord(u) for u in uncorrectedStr):
+                        rsOutput = None
+
+                        try:
+                            rsOutput = rsDecoder.decode(uncorrectedStr)
+                            if rsOutput and len(rsOutput):
+                                correctedStr = rsOutput[0]
+                                for corrIter,corrChar in enumerate(rsOutput[0]):
+                                    if corrChar != uncorrectedStr[corrIter]:
+                                        damage += 1
+                        # More errors than can be corrected. Set damage to total number of blocks.
+                        except RSCodecError:
+                            damage = dataRows*sectorWidth/Constants.ByteSize
+
+                    correctedData += correctedStr
+                
+                    dindex += dbs
+                    eindex += ebs
+
+                sectorDamage.append(float(damage)/(dataRows*sectorWidth/Constants.ByteSize))
+
+                outData = correctedData
+
+                #print sectorNum, top, left, bottom, right
+
+                # Add data to output if sector is not metadata
+                magicRow = DotRow.getMagicRowBytes(colorDepth, sectorWidth)
+                if s.dataRows[:len(magicRow)] != magicRow:
+                    #dataStr += outData
+                    dataStr += str(sectorNum) + "\n" + outData + "\n\n"
+                else:
+                    metadataStr += str(sectorNum) + "\n" + outData + "\n\n"
 
         if len(sectorDamage):
             self.sectorDamageAvg = sum(sectorDamage) / len(sectorDamage)
@@ -1415,6 +1393,25 @@ class ColorSafeImageFiles:
 
     def normalize(self, val, minVal, maxVal):
         return (val - minVal) / (maxVal - minVal)
+
+    def getSectorBounds(self, page, leastAlong, mostAlong, leastPerp, mostPerp, gapThreshold, \
+                      vertical = True, reverse = False):
+        """Search within given rough sector bounds and return the true coordinate of the gap
+        E.g. if looking for the real top gap coordinate, along is y and perp is x. Return y.
+        """
+        alongRange = range(leastAlong+1, mostAlong+1)
+        if reverse:
+            alongRange = alongRange[::-1]
+
+        for along in alongRange:
+            perpShadeSum = 0.0
+            for perp in range(leastPerp, mostPerp+1):
+                y = along if vertical else perp
+                x = perp if vertical else along
+                perpShadeSum += page[y][x].getAverageShade()
+            perpShadeSum /= (mostPerp - leastPerp)
+            if perpShadeSum > gapThreshold:
+                return along
 
     @staticmethod
     def findSkew(page, vertical = True, reverse = False):
