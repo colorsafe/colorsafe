@@ -1094,6 +1094,9 @@ class ColorSafeImageFiles:
             verticalBounds = self.findSkewBounds(page, verticalSkew, True)
             horizontalBounds = self.findSkewBounds(page, horizontalSkew, False)
 
+            #print verticalBounds
+            #print horizontalBounds
+
             sectorsVertical = len(verticalBounds)
             sectorsHorizontal = len(horizontalBounds)
 
@@ -1389,15 +1392,20 @@ class ColorSafeImageFiles:
 
                     outData = correctedData
 
+                    #print sectorNum, top, left, bottom, right
+
                     # Add data to output if sector is not metadata
                     magicRow = DotRow.getMagicRowBytes(colorDepth, sectorWidth)
                     if s.dataRows[:len(magicRow)] != magicRow:
-                        dataStr += outData
+                        #dataStr += outData
+                        dataStr += str(sectorNum) + "\n" + outData + "\n\n"
                     else:
                         metadataStr += str(sectorNum) + "\n" + outData + "\n\n"
 
         if len(sectorDamage):
             self.sectorDamageAvg = sum(sectorDamage) / len(sectorDamage)
+        else:
+            self.sectorDamageAvg = 1.0
 
         # TODO: Need to place sectors in Page objects, then each page in a CSFile, then call CSFile.decode()
 
@@ -1487,6 +1495,10 @@ class ColorSafeImageFiles:
 
             channelShadeAvg.append(channelShadeSum / perpLength)
 
+        #print vertical, skew
+        #print [int(100*(i-min(channelShadeAvg))/(max(channelShadeAvg)-min(channelShadeAvg))) for i in channelShadeAvg]
+        #print self.findBounds(channelShadeAvg)
+
         return self.findBounds(channelShadeAvg)
 
     # TODO: Consider moving this logic to a new ChannelsGrid object
@@ -1504,71 +1516,62 @@ class ColorSafeImageFiles:
         lowBorderThreshold = 0.35
         highGapThreshold = 0.65
 
-        minVal = min(l)
-        maxVal = max(l)
+        # Trim leading/trailing whitespace for better min/max normalization
+        borderBeginning = 0
+        for i,val in enumerate(l):
+            if self.normalize(val,min(l),max(l)) < highGapThreshold:
+                borderBeginning = i
+                break
 
-        ending = -1
-        beginning = -1
+        borderEnding = len(l)
+        for i,val in reversed(list(enumerate(l))):
+            if self.normalize(val,min(l),max(l)) < highGapThreshold:
+                borderEnding = i
+                break
+
+        lTruncated = l[borderBeginning:borderEnding+1]
+        minVal = min(lTruncated)
+        maxVal = max(lTruncated)
 
         begins = list()
         ends = list()
 
-        # Find ending border
-        y = len(l)
-        for i in l[::-1]:
-            y -= 1
-
-            val = self.normalize(i, minVal, maxVal)
-
-            if ending == -1:
-                if val < lowBorderThreshold:
-                    ending = y
-                    break
-
-        if ending == -1:
-            # Ending not found
-            # TODO: Throw error
-            return None
+        #print minVal, maxVal
+        #print "lTr" + str([int(100*self.normalize(i, minVal, maxVal)) for i in lTruncated])
+        #print
+        #print "l  " + str([int(100*self.normalize(i, minVal, maxVal)) for i in l])
+        #print
 
         # Find beginning border, and then all begin/end gaps that surround sector data
-        y = -1
         for i,val in enumerate(l):
-            y += 1
-
-            # Stop if ending reached
-            if y > ending:
-                break
+            if i < borderBeginning or i > borderEnding:
+                continue
 
             val = self.normalize(val, minVal, maxVal)
 
             # Look for expected values to cross thresholds anywhere in the last previousCount values.
-            previousVals = [ self.normalize(l[i - shift - 1], minVal, maxVal) for shift in range(previousCount)]
-
-            # Look for beginning of border first
-            if beginning == -1:
-                if val < lowBorderThreshold:
-                    beginning = y
-                    continue
+            previousVals = list()
+            for shift in range(previousCount):
+                prevIndex = i - shift - 1
+                if prevIndex > 0:
+                    previousVals.append(self.normalize(l[prevIndex], minVal, maxVal))
 
             # Begins and ends matched, looking for new begin gap
             if len(begins) == len(ends):
                 # Boundary where black turns white
                 if val > highGapThreshold and any(v < lowBorderThreshold for v in previousVals):
-                    begins.append(y)
+                    begins.append(i)
+                    #print "begs", str(i), str(i), str(val)
                     continue
 
             # More begins than ends, looking for new end gap
             if len(ends) < len(begins):
                 # Boundary where white turns black
                 if val < lowBorderThreshold and any(v > highGapThreshold for v in previousVals):
-                    if y >= begins[-1] + minLengthSector:
-                        ends.append(y-1)
+                    if i >= begins[-1] + minLengthSector:
+                        ends.append(i-1)
+                        #print "ends", str(i-1), str(i), str(val)
                         continue
-
-        if beginning == -1:
-            # Beginning not found.
-            # TODO: Throw error
-            return None
 
         # If begins and ends don't match, correct by cutting off excess beginning
         if len(begins) > len(ends):
