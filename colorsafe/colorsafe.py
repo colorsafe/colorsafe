@@ -50,6 +50,9 @@ class Defaults:
     filename = "out"
     fileExtension = "txt"
 
+def average(l):
+    return sum(l)/len(l)
+
 def binaryListToVal(l):
     """Takes a list of binary values, return an int corresponding to their value.
     """
@@ -92,6 +95,26 @@ def lowThreshold(colorDepth):
 
 def highThreshold(colorDepth):
     return 1 - lowThreshold(colorDepth)
+
+class InputPages:
+    def __init__(self, totalPages, height, width):
+        self.totalPages = totalPages
+        self.height = height
+        self.width = width
+
+    def getPagePixel(self, page, y, x):
+        """For caller to implement"""
+        pass
+
+class InputPage:
+    def __init__(self, pages, pageNum):
+        self.pages = pages
+        self.height = pages.height
+        self.width = pages.width
+        self.pageNum = pageNum
+
+    def getPixel(self, y, x):
+        return self.pages.getPagePixel(self.pageNum, y, x)
 
 # TODO: Channels and values (colors and shades) should be stored in metadata header separately. Remove notion of 
 #       "color".
@@ -1071,7 +1094,7 @@ class ColorSafeImageFiles:
 
         self.colorSafeFileToImages(self.csFile)
 
-    def decode(self, channelsPagesList, colorDepth):
+    def decode(self, pages, colorDepth):
         """Convert a list of pages channels into a list of sector channels, create decoded sectors, return data.
         Remove borders and gaps, scale down.
 
@@ -1085,7 +1108,9 @@ class ColorSafeImageFiles:
         dataStr = ""
         metadataStr = ""
 
-        for page in channelsPagesList:
+        for pageNum in range(pages.totalPages):
+            page = InputPage(pages, pageNum)
+
             # Get skews
             verticalSkew = ColorSafeImageFiles.findSkew(page, True)
             horizontalSkew = ColorSafeImageFiles.findSkew(page, False)
@@ -1154,8 +1179,8 @@ class ColorSafeImageFiles:
                 for x in range(left + 1, right + 1):
                     allRowBoundaryChanges = 0
                     for y in range(top, bottom + 1):
-                        current = page[y][x].getChannels()
-                        previous = page[y][x - 1].getChannels()
+                        current = page.getPixel(y,x)
+                        previous = page.getPixel(y,x-1)
 
                         for i in range(len(current)):
                             bucketCurrent = (0 if current[i] < boundaryThreshold else 1)
@@ -1170,8 +1195,8 @@ class ColorSafeImageFiles:
                 for y in range(top + 1, bottom + 1):
                     allColumnBoundaryChanges = 0
                     for x in range(left, right + 1):
-                        current = page[y][x].getChannels()
-                        previous = page[y - 1][x].getChannels()
+                        current = page.getPixel(y,x)
+                        previous = page.getPixel(y-1,x)
 
                         for i in range(len(current)):
                             bucketCurrent = (0 if current[i] < boundaryThreshold else 1)
@@ -1252,14 +1277,14 @@ class ColorSafeImageFiles:
                         dotPixels = list()
                         for yPixel in range(pixelsTop, pixelsBottom):
                             for xPixel in range(pixelsLeft, pixelsRight):
-                                pixel = page[yPixel][xPixel]
+                                pixel = page.getPixel(yPixel,xPixel)
 
                                 dotPixels.append(pixel)
 
                         # Average all pixels in the list, set into new ColorChannel
                         R,G,B = 0,0,0 # TODO: Generalize to channels, place in ColorChannels
                         for dotPixel in dotPixels:
-                            R1,G1,B1 = dotPixel.getChannels()
+                            R1,G1,B1 = dotPixel
                             R+=R1
                             G+=G1
                             B+=B1
@@ -1397,7 +1422,11 @@ class ColorSafeImageFiles:
             for perp in range(leastPerp, mostPerp+1):
                 y = along if vertical else perp
                 x = perp if vertical else along
-                perpShadeSum += page[y][x].getAverageShade()
+
+                if y < 0 or y >= page.height or x < 0 or x >= page.width:
+                    break
+
+                perpShadeSum += average(page.getPixel(y,x))
             perpShadeSum /= (mostPerp - leastPerp)
             if perpShadeSum > gapThreshold:
                 return along
@@ -1409,14 +1438,15 @@ class ColorSafeImageFiles:
         Vertical skew is the number of pixels skewed right on the bottom side (negative if left) if the top is constant
         Horizontal skew is the number of pixels skewed down on the right side (negative if up) if the left is constant
         """
-        # TODO: Binary search for first border would dramatically increase speed
+        # TODO: Binary search through perp to find first boundary. This will improve speed.
         # TODO: Search for two or more skew lines to improve accuracy? Scale isn't known yet, so this is tricky
 
         dataDensity = 0.5
+        alongStep = 10 #TODO: Refine this
 
         # Get length of column (or row) and the length of the axis perpendicular to it, row (or column)
-        alongLength = len(page if vertical else page[0]) # Along the axis specified by the vertical bool
-        perpLength = len(page[0] if vertical else page) # Perpendicular to the axis specified by the vertical bool
+        alongLength = page.height if vertical else page.width # Along the axis specified by the vertical bool
+        perpLength = page.width if vertical else page.height # Perpendicular to the axis specified by the vertical bool
 
         maxSkew = max(int(Constants.MaxSkewPerc * perpLength), Constants.MaxSkew)
 
@@ -1432,6 +1462,7 @@ class ColorSafeImageFiles:
             if reverse:
                 perpBounds = perpBounds[::-1]
 
+            # TODO: Consider stepping perp/along 5-10 at a time for speedup
             for perpIter in perpBounds:
                 # Don't check far past the first border coordinate, in order to speed up execution
                 if not reverse:
@@ -1443,13 +1474,19 @@ class ColorSafeImageFiles:
                     break
 
                 skewLine = list()
-                for alongIter in range(0, alongLength):
+                for alongIter in range(0, alongLength, alongStep):
                     perpValue = int(alongIter * slope) + perpIter
                     x = perpValue if vertical else alongIter
                     y = alongIter if vertical else perpValue
 
-                    pixelShade = page[y][x].getAverageShade()
+                    if x < 0 or x >= page.width or y < 0 or y >= page.height:
+                        break
+
+                    pixelShade = average(page.getPixel(y,x))
                     skewLine.append(pixelShade)
+
+                if not len(skewLine):
+                    continue
 
                 # TODO: Normalize
                 avgShade = sum(skewLine) / len(skewLine)
@@ -1463,9 +1500,11 @@ class ColorSafeImageFiles:
     def findSkewBounds(self, page, skew, vertical = True):
         """Get bounds including skew
         """
+        alongStep = 10 #TODO: Refine this
+
         # Get length of column (or row) and the length of the axis perpendicular to it, row (or column)
-        alongLength = len(page[0] if vertical else page) # Along the axis specified by the vertical bool
-        perpLength = len(page if vertical else page[0]) # Perpendicular to the axis specified by the vertical bool
+        alongLength = page.height if vertical else page.width # Along the axis specified by the vertical bool
+        perpLength = page.width if vertical else page.height # Perpendicular to the axis specified by the vertical bool
         slope = float(skew) / alongLength
 
         # Get all skew line shade sums
@@ -1474,7 +1513,7 @@ class ColorSafeImageFiles:
             alongShadeSum = 0
 
             # Sum all shades along the skew line
-            for alongIter in range(0, alongLength):
+            for alongIter in range(0, alongLength, alongStep):
                 perpValue = int(alongIter * slope) + perpIter
                 if perpValue < 0 or perpValue >= perpLength:
                     #print "zzz", perpValue, perpIter, perpLength, skew, alongIter, alongLength
@@ -1485,7 +1524,10 @@ class ColorSafeImageFiles:
                 y = perpValue if vertical else alongIter
                 x = alongIter if vertical else perpValue
 
-                pixelShade = page[y][x].getAverageShade()
+                if x < 0 or x >= page.width or y < 0 or y >= page.height:
+                    break
+
+                pixelShade = average(page.getPixel(y,x))
                 alongShadeSum += pixelShade
 
             channelShadeAvg.append(alongShadeSum / alongLength)
