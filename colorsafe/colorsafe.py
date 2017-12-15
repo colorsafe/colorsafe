@@ -1120,8 +1120,6 @@ class ColorSafeImageFiles:
 
             bounds = self.getSkewSectorBounds(verticalBounds, horizontalBounds, verticalSkew, horizontalSkew)
 
-            #print [str(i) + " " + str(value) for i,value in enumerate(bounds)]
-
             sectorsVertical = len(verticalBounds)
             sectorsHorizontal = len(horizontalBounds)
 
@@ -1416,7 +1414,6 @@ class ColorSafeImageFiles:
         if reverse:
             alongRange = alongRange[::-1]
 
-        #print "each", leastAlong, mostAlong, leastPerp, mostPerp, vertical, reverse
         for along in alongRange:
             perpShadeSum = 0.0
             for perp in range(leastPerp, mostPerp+1):
@@ -1475,12 +1472,14 @@ class ColorSafeImageFiles:
 
                 skewLine = list()
                 for alongIter in range(0, alongLength, alongStep):
-                    perpValue = int(alongIter * slope) + perpIter
+                    perpValue = int(round(alongIter * slope)) + perpIter
+
+                    if perpValue < 0 or perpValue >= perpLength:
+                        skewLine = list()
+                        break
+
                     x = perpValue if vertical else alongIter
                     y = alongIter if vertical else perpValue
-
-                    if x < 0 or x >= page.width or y < 0 or y >= page.height:
-                        break
 
                     pixelShade = average(page.getPixel(y,x))
                     skewLine.append(pixelShade)
@@ -1500,42 +1499,36 @@ class ColorSafeImageFiles:
     def findSkewBounds(self, page, skew, vertical = True):
         """Get bounds including skew
         """
-        alongStep = 10 #TODO: Refine this
+        perpStep = 3 # TODO: Refine this
 
         # Get length of column (or row) and the length of the axis perpendicular to it, row (or column)
         alongLength = page.height if vertical else page.width # Along the axis specified by the vertical bool
-        perpLength = page.width if vertical else page.height # Perpendicular to the axis specified by the vertical bool
-        slope = float(skew) / alongLength
+        perpLength = page.width if vertical else page.height # Perpendicular, e.g. in the direction of the bounds
+        slope = float(skew) / perpLength
 
         # Get all skew line shade sums
         channelShadeAvg = list()
-        for perpIter in range(0, perpLength):
+        for alongIter in range(0, alongLength):
             alongShadeSum = 0
 
             # Sum all shades along the skew line
-            for alongIter in range(0, alongLength, alongStep):
-                perpValue = int(alongIter * slope) + perpIter
-                if perpValue < 0 or perpValue >= perpLength:
-                    #print "zzz", perpValue, perpIter, perpLength, skew, alongIter, alongLength
-                    #TODO: zzz left off here. Need to get correct skewed bounds.
-                    alongShadeSum = 1.0 * alongLength # White border
+            for perpIter in range(0, perpLength, perpStep):
+                perpValue = int(round(perpIter * slope)) + alongIter
+
+                if perpValue < 0 or perpValue >= alongLength:
+                    alongShadeSum = 1.0 * perpLength # White border
+                    skewLine = list()
                     break
 
-                y = perpValue if vertical else alongIter
-                x = alongIter if vertical else perpValue
-
-                if x < 0 or x >= page.width or y < 0 or y >= page.height:
-                    break
+                y = perpValue if vertical else perpIter
+                x = perpIter if vertical else perpValue
 
                 pixelShade = average(page.getPixel(y,x))
                 alongShadeSum += pixelShade
 
-            channelShadeAvg.append(alongShadeSum / alongLength)
+            channelShadeAvg.append(alongShadeSum * perpStep / perpLength)
 
         bounds = self.findBounds(channelShadeAvg)
-
-        #print "chshav" + str([int(100*self.normalize(i,min(channelShadeAvg),max(channelShadeAvg))) for i in channelShadeAvg][1320:1345])
-        #print "bnds  " + str(bounds)
 
         return bounds
 
@@ -1563,7 +1556,7 @@ class ColorSafeImageFiles:
         """
         minLengthSector = 10 #TODO: Set to sectorWidth/sectorHeight
 
-        lowBorderThreshold = 0.40
+        lowBorderThreshold = 0.35
         highGapThreshold = 0.65
 
         # Trim leading/trailing whitespace for better min/max normalization
@@ -1597,14 +1590,13 @@ class ColorSafeImageFiles:
             previousVals = list()
             for shift in range(previousCount):
                 prevIndex = i - shift - 1
-                if prevIndex > 0:
+                if prevIndex >= 0:
                     previousVals.append(self.normalize(l[prevIndex], minVal, maxVal))
 
             # Begins and ends matched, looking for new begin gap
             if len(begins) == len(ends):
                 # Boundary where black turns white
                 if val > highGapThreshold and any(v < lowBorderThreshold for v in previousVals):
-                    #print "beg", i
                     begins.append(i)
                     continue
 
@@ -1613,11 +1605,8 @@ class ColorSafeImageFiles:
                 # Boundary where white turns black
                 if val < lowBorderThreshold and any(v > highGapThreshold for v in previousVals):
                     if i >= begins[-1] + minLengthSector:
-                        #print "end", i-1, val, previousVals
                         ends.append(i-1)
                         continue
-                    #else:
-                        #print "what", begins[-1], minLengthSector, begins
 
         # If begins and ends don't match, correct by cutting off excess beginning
         if len(begins) > len(ends):
