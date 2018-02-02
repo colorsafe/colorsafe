@@ -70,7 +70,7 @@ class ColorSafePdfFile:
                         filename,
                         fileExtension)
 
-        print "Max data per page:", str( csImages.csFile.maxData / 1000 ), "kB"
+        print( "Max data per page:", str( csImages.csFile.maxData / 1000 ), "kB")
 
         imageFilenames = list()
         for i,image in enumerate(csImages.images):
@@ -92,7 +92,7 @@ class ColorSafePdfFile:
             if not saveImages:
                 os.remove(f)
             else:
-                print "Saved", outputFilename
+                print( "Saved", outputFilename)
 
     def getPageProperties(self):
         # Full working height, including all regions outside of borders
@@ -124,7 +124,7 @@ class ColorSafePdfFile:
             # Move to next page
             c.showPage()
 
-        print "Saved", pdfFilename
+        print( "Saved", pdfFilename)
         c.save()
 
 class ColorSafeEncoder:
