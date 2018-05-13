@@ -18,10 +18,10 @@ def getPageGrayPixel(pageNum, y, x, pagePixels, grayscale = True):
     return channels
 
 class ColorSafeDecoder:
-    def __init__(self, args):
+    def __init__(self, filenames, colorDepth, outfile, saveMetadata):
         channelsPageList = list()
 
-        for filename in args.filenames:
+        for filename in filenames:
             image = Image.open(filename)
             pixels = image.load()
             pagePixels.append(pixels)
@@ -61,15 +61,15 @@ class ColorSafeDecoder:
         pages.getPagePixel = getPagePixel.__get__(pages, pages.__class__)
 
         csFile = ColorSafeImageFiles()
-        data,metadata = csFile.decode(pages, args.colorDepth)
+        data,metadata = csFile.decode(pages, colorDepth)
 
         print "Decoded successfully with %.2f %% average damage" % (100*csFile.sectorDamageAvg)
 
-        f = open(args.outfile,"w")
+        f = open(outfile,"w")
         f.write(data)
         f.close()
 
-        if args.saveMetadata:
+        if saveMetadata:
             f = open("metadata.txt","w")
             f.write(metadata)
             f.close()

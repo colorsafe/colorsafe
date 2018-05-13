@@ -1,3 +1,6 @@
+import sys, os
+sys.path.append(os.path.realpath(os.path.dirname(__file__)+"/.."))
+
 from colorsafe.colorsafe import Constants, ColorChannels, Dot, DotByte, DotRow
 
 MaxColorVal = 255
@@ -14,12 +17,19 @@ def test_dot_encode_colordepth1():
 def test_dot_encode_colordepth2():
     dot = Dot()
 
+    # White
     dot.encode([0,0]) 
     assert dot.getChannels() == (1.0,1.0,1.0)
 
+    # Magenta
+    dot.encode([0,1])
+    assert dot.getChannels() == (1.0,0.0,1.0)
+
+    # Cyan
     dot.encode([1,0]) 
     assert dot.getChannels() == (0,1.0,1.0)
 
+    # Yellow
     dot.encode([1,1])
     assert dot.getChannels() == (1.0,1.0,0)
 
@@ -129,18 +139,20 @@ def test_dotByte_decode():
     dotByte.decode([c]*Constants.ByteSize, 6)
     assert dotByte.bytesList == [0xFF,0xFF,0xFF,0x00,0x00,0x00]
 
-# TODO: These are broken
-## DotRow
-#def test_dotRow_encode():
-#    dotRow = DotRow()   
-#
-#    dotRow.encode([85,170,85,170],2,16,0)
-#    assert dotRow.dotBytes[0].dots[0].getChannels() == (0.0,1.0,1.0)
-#
-#def test_dotRow_decode():
-#    dotRow = DotRow()
-#
-#    c = ColorChannels(1.0,0.0,1.0)
-#    data = dotRow.decode([c]*16,2,16,0)
-#    assert data == [0, 255, 0, 255]
+# DotRow
+def test_dotRow_encode():
+    dotRow = DotRow()
+
+    dotRow.encode([85,170,85,170],2,16,0,False)
+    assert dotRow.dotBytes[0].dots[0].getChannels() == (0.0,1.0,1.0)
+
+    dotRow.encode([85,170,85,170],2,16,0,True)
+    assert dotRow.dotBytes[0].dots[0].getChannels() == (1.0,0.0,1.0)
+
+def test_dotRow_decode():
+    dotRow = DotRow()
+
+    c = ColorChannels(1.0,0.0,1.0)
+    data = dotRow.decode([c]*16,2,16,0,False)
+    assert data == [85,170,85,170]
 

@@ -20,6 +20,7 @@ class ColorSafePdfFile:
 
     ImageExtension = "png"
     PdfExtension = "pdf"
+    FilenameFormat = "%s_%d.%s"
 
     def __init__(self,
                  data,
@@ -74,7 +75,7 @@ class ColorSafePdfFile:
 
         imageFilenames = list()
         for i,image in enumerate(csImages.images):
-            outputFilename = csImages.filename + str(i) + "." + self.ImageExtension
+            outputFilename = self.FilenameFormat % (csImages.filename, i, self.ImageExtension)
             imageFilenames.append(outputFilename)
             imagePIL = Image.new('RGB', (len(image[0]),len(image)), "white")
             pixelsPIL = imagePIL.load() # create the pixel map
@@ -113,8 +114,7 @@ class ColorSafePdfFile:
 
         # Draw without borders; printing program should add its own padding.
         for i,csImage in enumerate(self.csImages.images):
-            # TODO: Combine this logic with above, somehow
-            imgFilename = self.csImages.filename + str(i) + "." + self.ImageExtension
+            imgFilename = self.FilenameFormat % (self.csImages.filename, i, self.ImageExtension)
             c.drawImage(imgFilename, 0,0)
 
             # TODO: Use font size
@@ -128,23 +128,24 @@ class ColorSafePdfFile:
         c.save()
 
 class ColorSafeEncoder:
-    def __init__(self, args):
-        fileHandle = open(args.filename)
+    def __init__(self, filename, colorDepth, pageHeight, pageWidth, borderTop, borderBottom, borderLeft, borderRight,
+                 dotFillPixels, pixelsPerDot, printerDpi, saveImages):
+        fileHandle = open(filename)
 
         mm = mmap.mmap(fileHandle.fileno(), 0, prot=mmap.PROT_READ)
 
         pdfFile = ColorSafePdfFile(mm,
-                                   colorDepth = args.colorDepth,
-                                   pageHeight = args.pageHeight,
-                                   pageWidth = args.pageWidth,
-                                   borderTop = args.borderTop,
-                                   borderBottom = args.borderBottom,
-                                   borderLeft = args.borderLeft,
-                                   borderRight = args.borderRight,
-                                   dotFillPixels = args.dotFillPixels,
-                                   pixelsPerDot = args.pixelsPerDot,
-                                   printerDpi = args.printerDpi,
-                                   saveImages = args.saveImages)
+                                   colorDepth = colorDepth,
+                                   pageHeight = pageHeight,
+                                   pageWidth = pageWidth,
+                                   borderTop = borderTop,
+                                   borderBottom = borderBottom,
+                                   borderLeft = borderLeft,
+                                   borderRight = borderRight,
+                                   dotFillPixels = dotFillPixels,
+                                   pixelsPerDot = pixelsPerDot,
+                                   printerDpi = printerDpi,
+                                   saveImages = saveImages)
 
         fileHandle.close()
 

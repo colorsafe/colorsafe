@@ -192,7 +192,8 @@ class Dot:
         firstHalfFirstBit = firstHalf.pop(0)
         secondHalfFirstBit = secondHalf.pop(0)
 
-        # A terse way to map 2 bits to 4 colors (White, Cyan, Magenta, Yellow)
+        # A terse way to map 2 bits to 4 colors (00: White, 01: Magenta, 10: Cyan, 11: Yellow)
+        # TODO: Swap magenta and cyan?
         index = binaryListToVal([firstHalfFirstBit,secondHalfFirstBit])
         color = [1.0]*(Constants.ColorChannels+1)
         color[index] = 0
@@ -1386,8 +1387,7 @@ class ColorSafeImageFiles:
                 # Add data to output if sector is not metadata
                 magicRow = DotRow.getMagicRowBytes(colorDepth, sectorWidth)
                 if s.dataRows[:len(magicRow)] != magicRow:
-                    #dataStr += outData
-                    dataStr += str(sectorNum) + "\n" + outData + "\n\n"
+                    dataStr += outData
                 else:
                     metadataStr += str(sectorNum) + "\n" + outData + "\n\n"
 

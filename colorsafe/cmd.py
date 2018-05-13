@@ -5,10 +5,12 @@ from csencoder import ColorSafeEncoder
 import argparse
 
 def encode(args):
-    ColorSafeEncoder(args)
+    ColorSafeEncoder(args.filename, args.colorDepth, args.pageHeight, args.pageWidth, args.borderTop, args.borderBottom,
+                     args.borderLeft, args.borderRight, args.dotFillPixels, args.pixelsPerDot, args.printerDpi,
+                     args.saveImages)
 
 def decode(args):
-    ColorSafeDecoder(args)
+    ColorSafeDecoder(args.filenames, args.colorDepth, args.outfile, args.saveMetadata)
 
 def main():
     parser = argparse.ArgumentParser(description='A colorized data storage scheme for printing and scanning.')

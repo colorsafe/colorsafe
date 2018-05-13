@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION_NAME = '0.1.0.dev4'
+VERSION_NAME = '0.1.0.dev5'
 
 setup(
   name = 'colorsafe',
