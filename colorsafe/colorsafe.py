@@ -1142,6 +1142,10 @@ class ColorSafeImageFiles:
                 heightPerDot = float(bottomTemp - topTemp + 1) / (sectorHeight + 2 * gapSize)
                 widthPerDot = float(rightTemp - leftTemp + 1) / (sectorWidth + 2 * gapSize)
 
+                if widthPerDot < 1.0: # Less than 1.0x resolution, cannot get all dots
+                    # TODO: Throw error
+                    return
+
                 # Find real gaps, since small rotation across a large page may distort this.
                 # Look within one-dot unit of pixels away
                 bottommostTop = topTemp + int(round(heightPerDot))
@@ -1208,10 +1212,6 @@ class ColorSafeImageFiles:
 
                 # Find the most likely dot start locations, TODO: Combine into one function
                 avgPixelsWidth = int(round(widthPerDot))
-
-                if widthPerDot < 1.0: # Less than 1.0x resolution, cannot get all dots
-                    # TODO: Throw error, move further up in this function
-                    return
 
                 if widthPerDot == 1.0: # Exactly 1.0, e.g. original output, or perfectly scanned
                     maxPixelsWidth = 1
@@ -1558,6 +1558,7 @@ class ColorSafeImageFiles:
 
         lowBorderThreshold = 0.35
         highGapThreshold = 0.65
+        diffThreshold = 0.1 # Threshold for throwing out a value and using the mode end-begin diff instead
 
         # Trim leading/trailing whitespace for better min/max normalization
         borderBeginning = 0
@@ -1611,6 +1612,25 @@ class ColorSafeImageFiles:
         # If begins and ends don't match, correct by cutting off excess beginning
         if len(begins) > len(ends):
             begins = begins[0:len(ends)]
+
+        # Correct bounds
+        if len(begins) > 1:
+            beginsDiffs = list()
+            endsDiffs = list()
+            for i in range(1, len(begins)):
+                beginsDiffs.append(begins[i] - begins[i-1])
+                endsDiffs.append(ends[i] - ends[i-1])
+
+            beginsDiffsMode = max(beginsDiffs, key=beginsDiffs.count)
+            endsDiffsMode = max(endsDiffs, key=endsDiffs.count)
+
+            # TODO: Doesn't correct first begin or end - assumes first one is correct
+            for i in range(1, len(begins)):
+                if abs(begins[i] - begins[i - 1]) / float(beginsDiffsMode) > diffThreshold:
+                    begins[i] = begins[i - 1] + beginsDiffsMode
+
+                if abs(ends[i] - ends[i - 1]) / float(endsDiffsMode) > diffThreshold:
+                    ends[i] = ends[i - 1] + endsDiffsMode
 
         bounds = list()
         for i in range(0, len(begins)):

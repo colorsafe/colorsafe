@@ -41,7 +41,9 @@ class ColorSafePdfFile:
                  filename = Defaults.filename,
                  printerDpi = printerDpi,
                  fileExtension = Defaults.fileExtension,
-                 saveImages = False):
+                 outPath = "",
+                 saveImages = False,
+                 noPdf = False):
 
         self.printerDpi = printerDpi
         self.pageHeight = pageHeight
@@ -52,6 +54,7 @@ class ColorSafePdfFile:
         self.borderRight = borderRight
 
         self.pixelsPerDot = pixelsPerDot
+        self.outPath = outPath
 
         self.getPageProperties()
 
@@ -75,7 +78,7 @@ class ColorSafePdfFile:
 
         imageFilenames = list()
         for i,image in enumerate(csImages.images):
-            outputFilename = self.FilenameFormat % (csImages.filename, i, self.ImageExtension)
+            outputFilename = os.path.join(outPath, self.FilenameFormat % (csImages.filename, i, self.ImageExtension))
             imageFilenames.append(outputFilename)
             imagePIL = Image.new('RGB', (len(image[0]),len(image)), "white")
             pixelsPIL = imagePIL.load() # create the pixel map
@@ -87,7 +90,8 @@ class ColorSafePdfFile:
 
         self.csImages = csImages
 
-        self.getPdfFile()
+        if not noPdf:
+            self.getPdfFile()
 
         for f in imageFilenames:
             if not saveImages:
@@ -108,7 +112,7 @@ class ColorSafePdfFile:
         pdfHeight = self.csImages.workingHeightPixels+headerPaddingPixels
         headerYVal = pdfHeight - headerPaddingPixels/2
 
-        pdfFilename = self.csImages.filename + "." + self.PdfExtension
+        pdfFilename = os.path.join(self.outPath, self.csImages.filename + "." + self.PdfExtension)
         c = canvas.Canvas(pdfFilename)
         c.setPageSize((pdfWidth,pdfHeight))
 
@@ -129,7 +133,7 @@ class ColorSafePdfFile:
 
 class ColorSafeEncoder:
     def __init__(self, filename, colorDepth, pageHeight, pageWidth, borderTop, borderBottom, borderLeft, borderRight,
-                 dotFillPixels, pixelsPerDot, printerDpi, saveImages):
+                 dotFillPixels, pixelsPerDot, printerDpi, outPath, saveImages, noPdf):
         fileHandle = open(filename)
 
         mm = mmap.mmap(fileHandle.fileno(), 0, prot=mmap.PROT_READ)
@@ -145,7 +149,9 @@ class ColorSafeEncoder:
                                    dotFillPixels = dotFillPixels,
                                    pixelsPerDot = pixelsPerDot,
                                    printerDpi = printerDpi,
-                                   saveImages = saveImages)
+                                   outPath = outPath,
+                                   saveImages = saveImages,
+                                   noPdf = noPdf)
 
         fileHandle.close()
 

@@ -8,3 +8,4 @@ dist
 ignore
 .DS_STORE
 .idea
+.pytest_cache

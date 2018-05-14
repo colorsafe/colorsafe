@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION_NAME = '0.1.0.dev5'
+VERSION_NAME = '0.1.0.dev6'
 
 setup(
   name = 'colorsafe',
@@ -18,7 +18,8 @@ setup(
   install_requires = [
     'unireedsolomon',
     'reportlab',
-    'pillow'
+    'pillow',
+    'pytest'
   ],
   classifiers = [],
 )

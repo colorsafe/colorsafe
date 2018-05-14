@@ -6,7 +6,6 @@ MaxColorVal = 255
 pagePixels = list()
 
 def getPageGrayPixel(pageNum, y, x, pagePixels, grayscale = True):
-    #print pageNum, pagePixels, x, y
     pixel = pagePixels[pageNum][x,y]
 
     if grayscale:

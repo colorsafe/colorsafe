@@ -7,7 +7,7 @@ import argparse
 def encode(args):
     ColorSafeEncoder(args.filename, args.colorDepth, args.pageHeight, args.pageWidth, args.borderTop, args.borderBottom,
                      args.borderLeft, args.borderRight, args.dotFillPixels, args.pixelsPerDot, args.printerDpi,
-                     args.saveImages)
+                     args.outPath, args.saveImages, args.noPdf)
 
 def decode(args):
     ColorSafeDecoder(args.filenames, args.colorDepth, args.outfile, args.saveMetadata)
@@ -42,8 +42,12 @@ def main():
                                 help='Left border of output pages (in)')
     encoder_parser.add_argument('-br', '--borderRight', type=float, default=0.1, \
                                 help='Right border of output pages (in)')
+    encoder_parser.add_argument('-o', '--outPath', type=str, default="", \
+                                help='Output file path, for pdf and images')
     encoder_parser.add_argument('--saveImages', action='store_true', default=False, \
                                 help='Also output the individual png files')
+    encoder_parser.add_argument('--noPdf', action='store_true', default=False, \
+                                help='Don\'t save the PDF file by default')
 
     encoder_parser.set_defaults(func=encode)
 
