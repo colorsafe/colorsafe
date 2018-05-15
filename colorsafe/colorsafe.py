@@ -6,6 +6,11 @@ import math
 import random
 import time
 
+
+class DecodingError(Exception):
+    """Raised when any error prevents decoding."""
+    pass
+
 class Constants:
     ByteSize = 8
     Byte00 = 0b00000000
@@ -891,7 +896,7 @@ class ColorSafeFile:
             for key in metadataRemaining:
                 metadataToInsert[key] = self.metadata[key]
 
-            mdSector = MetadataSector(self.sectorHeight, self.sectorWidth, self.colorDepth, self.eccRate, \
+            mdSector = MetadataSector(self.sectorHeight, self.sectorWidth, self.colorDepth, self.eccRate,
                 metadataToInsert)
 
             metadataInserted = mdSector.metadata
@@ -1143,8 +1148,7 @@ class ColorSafeImageFiles:
                 widthPerDot = float(rightTemp - leftTemp + 1) / (sectorWidth + 2 * gapSize)
 
                 if widthPerDot < 1.0: # Less than 1.0x resolution, cannot get all dots
-                    # TODO: Throw error
-                    return
+                    raise DecodingError
 
                 # Find real gaps, since small rotation across a large page may distort this.
                 # Look within one-dot unit of pixels away
@@ -1159,13 +1163,13 @@ class ColorSafeImageFiles:
 
                 gapThreshold = 0.75
 
-                top = self.getSectorBounds(page, topmostTop, bottommostTop, rightmostLeft, leftmostRight, \
+                top = self.getSectorBounds(page, topmostTop, bottommostTop, rightmostLeft, leftmostRight,
                                            gapThreshold)
-                bottom = self.getSectorBounds(page, topmostBottom, bottommostBottom, rightmostLeft, leftmostRight, \
+                bottom = self.getSectorBounds(page, topmostBottom, bottommostBottom, rightmostLeft, leftmostRight,
                                               gapThreshold, True, True)
-                left = self.getSectorBounds(page, leftmostLeft, rightmostLeft, bottommostTop, topmostBottom, \
+                left = self.getSectorBounds(page, leftmostLeft, rightmostLeft, bottommostTop, topmostBottom,
                                             gapThreshold, False)
-                right = self.getSectorBounds(page, leftmostRight, rightmostRight, bottommostTop, topmostBottom, \
+                right = self.getSectorBounds(page, leftmostRight, rightmostRight, bottommostTop, topmostBottom,
                                              gapThreshold, False, True)
 
                 top = top if top else topTemp

@@ -1,9 +1,16 @@
 from colorsafe import ColorSafeImageFiles, InputPages
 from PIL import Image
+import re
 
 MaxColorVal = 255
 
-pagePixels = list()
+def sortStringsNumerically(l):
+    def stringSplitByNumbers(x):
+        r = re.compile('(\d+)')
+        p = r.split(x)
+        return [int(y) if y.isdigit() else y for y in p]
+
+    return sorted(l, key=stringSplitByNumbers)
 
 def getPageGrayPixel(pageNum, y, x, pagePixels, grayscale = True):
     pixel = pagePixels[pageNum][x,y]
@@ -18,12 +25,13 @@ def getPageGrayPixel(pageNum, y, x, pagePixels, grayscale = True):
 
 class ColorSafeDecoder:
     def __init__(self, filenames, colorDepth, outfile, saveMetadata):
-        channelsPageList = list()
+        #channelsPageList = list()
+        self.pagePixels = list()
 
-        for filename in filenames:
+        for filename in sortStringsNumerically(filenames):
             image = Image.open(filename)
             pixels = image.load()
-            pagePixels.append(pixels)
+            self.pagePixels.append(pixels)
 
             #width = image.size[0]
             #height = image.size[1]
@@ -47,7 +55,7 @@ class ColorSafeDecoder:
             #channelsPageList.append(channelsList)
 
         try:
-            len(pagePixels[0][0,0])
+            len(self.pagePixels[0][0,0])
             grayscale = False
         except:
             grayscale = True
@@ -55,8 +63,8 @@ class ColorSafeDecoder:
         def getPagePixel(self, pageNum, y, x):
             return getPageGrayPixel(pageNum, y, x, self.pagePixels, grayscale)
 
-        pages = InputPages(len(pagePixels), image.size[1], image.size[0])
-        pages.pagePixels = pagePixels
+        pages = InputPages(len(self.pagePixels), image.size[1], image.size[0])
+        pages.pagePixels = self.pagePixels
         pages.getPagePixel = getPagePixel.__get__(pages, pages.__class__)
 
         csFile = ColorSafeImageFiles()

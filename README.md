@@ -1,12 +1,12 @@
 # ColorSafe
 
-A data matrix for printing on paper. Inspired by
-[PaperBak](https://github.com/Rupan/paperbak), ColorSafe is written with modern
-methods and technologies and is cross-platform. It aims to allow a few
-Megabytes of data (or more) to be stored on paper for a worst case scenario
-backup, for extremely long-term archiving, or just for fun. With best
-practices, ColorSafe encoded data can safely withstand the viccissitudes of
-technology changes over long periods of time.
+A data matrix scheme for printing on paper. Inspired by
+[PaperBak](https://github.com/Rupan/paperbak), ColorSafe is written in Python
+and has a well-defined specification. It aims to allow a few Megabytes of data
+(or more) to be stored on paper for a worst case scenario backup, for
+extremely long-term archiving, or just for fun. With best practices, ColorSafe
+encoded data can safely withstand the vicissitudes of technology changes over
+long periods of time.
 
 # Examples
 
@@ -38,11 +38,10 @@ To encode a file with default settings, e.g. 100dpi:
 This generates a single pdf and multiple png files with the black and white
 data matrices, which can then be printed and stored.
 
-To decode (black/white only), scan the images back at 3x resolution, e.g.
-300dpi, and run decoding:
+To decode, scan the images back at 3x resolution, e.g. 300dpi, and run decoding:
 
 ``colorsafe decode scan_page0.bmp scan_page1.bmp``
 
 Which outputs the data on the given pages.
 
-Try the argument -c 2 or 3 for colorized encoding modes.
+Try the argument -c 2 or 3 for colorized encoding and decoding modes.

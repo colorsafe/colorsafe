@@ -97,7 +97,7 @@ class ColorSafePdfFile:
             if not saveImages:
                 os.remove(f)
             else:
-                print "Saved", outputFilename
+                print "Saved", f
 
     def getPageProperties(self):
         # Full working height, including all regions outside of borders
