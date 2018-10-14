@@ -4,24 +4,30 @@ import re
 
 MaxColorVal = 255
 
+
 def sortStringsNumerically(l):
     def stringSplitByNumbers(x):
-        r = re.compile('(\d+)')
+        r = re.compile(r'(\d+)')
         p = r.split(x)
         return [int(y) if y.isdigit() else y for y in p]
 
     return sorted(l, key=stringSplitByNumbers)
 
-def getPageGrayPixel(pageNum, y, x, pagePixels, grayscale = True):
-    pixel = pagePixels[pageNum][x,y]
+
+def getPageGrayPixel(pageNum, y, x, pagePixels, grayscale=True):
+    pixel = pagePixels[pageNum][x, y]
 
     if grayscale:
-        value = float(pixel)/MaxColorVal
+        value = float(pixel) / MaxColorVal
         channels = (value, value, value)
     else:
-        channels = (float(pixel[0])/MaxColorVal, float(pixel[1])/MaxColorVal, float(pixel[2])/MaxColorVal)
+        channels = (
+            float(pixel[0]) / MaxColorVal,
+            float(pixel[1]) / MaxColorVal,
+            float(pixel[2]) / MaxColorVal)
 
     return channels
+
 
 class ColorSafeDecoder:
     def __init__(self, filenames, colorDepth, outfile, saveMetadata):
@@ -29,16 +35,21 @@ class ColorSafeDecoder:
         self.pagePixels = list()
 
         for filename in sortStringsNumerically(filenames):
-            image = Image.open(filename)
+            try:
+                image = Image.open(filename)
+            except IOError:
+                print "ERROR: File {} is not a valid image file".format(filename)
+                return
+
             pixels = image.load()
             self.pagePixels.append(pixels)
 
             #width = image.size[0]
             #height = image.size[1]
 
-            ## Remove alpha channel, combine into an appropriate channels list.
+            # Remove alpha channel, combine into an appropriate channels list.
             #channelsList = list()
-            #for y in range(height):
+            # for y in range(height):
             #    channelsRow = list()
             #    for x in range(width):
             #        pixel = pixels[x,y]
@@ -52,12 +63,12 @@ class ColorSafeDecoder:
             #        channelsRow.append(channels)
             #    channelsList.append(channelsRow)
 
-            #channelsPageList.append(channelsList)
+            # channelsPageList.append(channelsList)
 
         try:
-            len(self.pagePixels[0][0,0])
+            len(self.pagePixels[0][0, 0])  # Will be an int, not a list if image is grayscale
             grayscale = False
-        except:
+        except TypeError:
             grayscale = True
 
         def getPagePixel(self, pageNum, y, x):
@@ -68,15 +79,16 @@ class ColorSafeDecoder:
         pages.getPagePixel = getPagePixel.__get__(pages, pages.__class__)
 
         csFile = ColorSafeImageFiles()
-        data,metadata = csFile.decode(pages, colorDepth)
+        data, metadata = csFile.decode(pages, colorDepth)
 
-        print "Decoded successfully with %.2f %% average damage" % (100*csFile.sectorDamageAvg)
+        print "Decoded successfully with %.2f %% average damage" % (
+            100 * csFile.sectorDamageAvg)
 
-        f = open(outfile,"w")
+        f = open(outfile, "w")
         f.write(data)
         f.close()
 
         if saveMetadata:
-            f = open("metadata.txt","w")
+            f = open("metadata.txt", "w")
             f.write(metadata)
             f.close()

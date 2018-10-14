@@ -6,31 +6,51 @@ import argparse
 
 
 def encode(args):
-    ColorSafeEncoder(args.filename, args.colorDepth, args.pageHeight, args.pageWidth, args.borderTop, args.borderBottom,
-                     args.borderLeft, args.borderRight, args.dotFillPixels, args.pixelsPerDot, args.printerDpi,
-                     args.outPath, args.saveImages, args.noPdf)
+    ColorSafeEncoder(
+        args.filename,
+        args.colorDepth,
+        args.pageHeight,
+        args.pageWidth,
+        args.borderTop,
+        args.borderBottom,
+        args.borderLeft,
+        args.borderRight,
+        args.dotFillPixels,
+        args.pixelsPerDot,
+        args.printerDpi,
+        args.outPath,
+        args.saveImages,
+        args.noPdf)
 
 
 def decode(args):
-    ColorSafeDecoder(args.filenames, args.colorDepth, args.outfile, args.saveMetadata)
+    ColorSafeDecoder(
+        args.filenames,
+        args.colorDepth,
+        args.outfile,
+        args.saveMetadata)
 
 
 def main():
-    parser = argparse.ArgumentParser(description='A colorized data storage scheme for printing and scanning.')
+    parser = argparse.ArgumentParser(
+        description='A colorized data storage scheme for printing and scanning.')
 
     subparser = parser.add_subparsers()
 
-    encoder_parser = subparser.add_parser('encode',
-                                          help='Encode an input file, creates an output ColorSafe pdf file')
+    encoder_parser = subparser.add_parser(
+        'encode', help='Encode an input file, creates an output ColorSafe pdf file')
 
     encoder_parser.add_argument('filename',
                                 help='Input filename, supports any filetype')
-    encoder_parser.add_argument('-c', '--colorDepth', type=int, default=1, choices=[1, 2, 3],
-                                help='Color depth')
+    encoder_parser.add_argument('-c', '--colorDepth', type=int, default=1,
+                                choices=[1, 2, 3], help='Color depth')
     encoder_parser.add_argument('-df', '--dotFillPixels', type=int, default=3,
-                                help='Pixels per dot to be colored in')
+                                help='Pixels on each side of each dot, colored spaces only. ' +
+                                     'Thus, each dot will comprise df*df colored pixels.'
+                                     'Must be less than or equal to pixelsPerDot.')
     encoder_parser.add_argument('-pd', '--pixelsPerDot', type=int, default=4,
-                                help='Pixels per dot total')
+                                help='Pixels on each side of each dot, including white or colored spaces. ' +
+                                     'Thus each dot will comprise pd*pd total pixels.')
     encoder_parser.add_argument('-di', '--printerDpi', type=int, default=100,
                                 help='Printed dots per inch')
     encoder_parser.add_argument('-ph', '--pageHeight', type=float, default=11,
@@ -54,8 +74,8 @@ def main():
 
     encoder_parser.set_defaults(func=encode)
 
-    decoder_parser = subparser.add_parser('decode',
-                                           help='Decode a scanned ColorSafe image file')
+    decoder_parser = subparser.add_parser(
+        'decode', help='Decode a scanned ColorSafe image file')
 
     decoder_parser.add_argument('filenames', nargs='+',
                                 help='Input filenames, one or more scanned ColorSafe images')

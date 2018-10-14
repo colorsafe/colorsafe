@@ -92,13 +92,13 @@ Larger sector sizes can fit more data, since they have less overhead with border
 The requested error-correction rate can be requested to be different for data and metadata sectors. If not, whatever rate is specified will be used for both. The requested rate will correct a combined number of errors (unknown positions) and erasures (errors with known position):
 
 ```
-E = 2 \* E(errors) + E(erasures)
+E = 2 * E(errors) + E(erasures)
 ```
 
 The basic ECC algorithm is a Reed-Solomon code based on E:
 
 ```
-RSn\_max = 2 ^ 8 - 1 symbols [8 bits per symbol, e.g. max = 255 bytes]
+RSn_max = 2 ^ 8 - 1 symbols [8 bits per symbol, e.g. max = 255 bytes]
 ```
 
 ```
@@ -106,7 +106,7 @@ RSd = RSn - RSk + 1
 ```
 
 ```
-RSd ~ E \* RSn
+RSd ~ E * RSn
 ```
 
 If a sector with M \* N / 8 bytes is large enough to require more than one Reed-Solomon block, which are at most 255 bytes, all but the last two RS blocks will be size 255, and the last two RS blocks will equally split the remaining correctable bytes (inequal splits will cause the second-to-last block to be larger than the last). In this way, most RS blocks will be as large as possible, and no RS block will be less than 128 bytes or the maximum that can fit into a sector. These RS blocks will be divided into data and ECC blocks where data blocks will be rounded down and ECC blocks will be rounded up (based on ECC rate).
@@ -160,7 +160,7 @@ For each data and metadata block, the ECC region will not cover the magic row se
 Given E, the desired error correction rate, and M, the height of each sector in dots, the number of ECC rows R required is:
 
 ```
-( M - 1 ) \* ( 1 - ( 1 / ( 1 + E ) ) )
+( M - 1 ) * ( 1 - ( 1 / ( 1 + E ) ) )
 ```
 
 Then the number of data or metadata rows will be M - R - 1.

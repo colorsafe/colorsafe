@@ -7,9 +7,14 @@ import random
 import time
 
 
+# TODO: Refactor this file into encoding/decoding libraries, utils, and constants. Data-classes might remain,
+# to be sub-classed in encoding/decoding libraries.
+
+
 class DecodingError(Exception):
     """Raised when any error prevents decoding."""
     pass
+
 
 class Constants:
     ByteSize = 8
@@ -18,9 +23,9 @@ class Constants:
     Byte55 = 0b01010101
     ByteAA = 0b10101010
 
-    ColorChannels = 3 # R, G, B, and all secondary combinations
-    ColorChannels1 = 1 # Shades of gray only
-    ColorChannels2 = 2 # Primary subtractive colors, CMYK
+    ColorChannels = 3  # R, G, B, and all secondary combinations
+    ColorChannels1 = 1  # Shades of gray only
+    ColorChannels2 = 2  # Primary subtractive colors, CMYK
     ColorDepthMax = 2 ** ByteSize - 1
     DataMode = 1
     ECCMode = 1
@@ -30,10 +35,11 @@ class Constants:
     MinorVersion = 1
     RSBlockSizeMax = 2 ** ByteSize - 1
     RevisionVersion = 0
-    TotalPagesMaxBytes = 8 # 8 bytes per page maximum for the total-pages field
+    TotalPagesMaxBytes = 8  # 8 bytes per page maximum for the total-pages field
 
     MaxSkew = 5
     MaxSkewPerc = 0.002
+
 
 class Defaults:
     colorDepth = 1
@@ -43,7 +49,7 @@ class Defaults:
     sectorHeight = 64
     sectorWidth = 64
     borderSize = 1
-    gapSize = 1 # TODO: Consider splitting to left,right,top,bottom to remove 1&2 numbers from various functions
+    gapSize = 1  # TODO: Consider splitting to left,right,top,bottom to remove 1&2 numbers from various functions
 
     # An integer representing the number of pixels colored in per dot per side.
     dotFillPixels = 3
@@ -55,8 +61,10 @@ class Defaults:
     filename = "out"
     fileExtension = "txt"
 
+
 def average(l):
-    return sum(l)/len(l)
+    return sum(l) / len(l)
+
 
 def binaryListToVal(l):
     """Takes a list of binary values, return an int corresponding to their value.
@@ -68,22 +76,25 @@ def binaryListToVal(l):
         place = place << 1
     return val
 
+
 def binaryListToFloat(l):
     """Takes a list of binary values, returns a float corresponding to their fractional value.
     """
-    f = float( binaryListToVal(l) ) / (( 1 << len(l) ) - 1)
+    f = float(binaryListToVal(l)) / ((1 << len(l)) - 1)
     return f
+
 
 def floatToBinaryList(f, bits):
     """Takes a float f, returns a list of binary values with a length of bits.
     """
-    num = int(round(float(f) * ((1 << bits)-1)))
+    num = int(round(float(f) * ((1 << bits) - 1)))
 
     ret = list()
     for i in range(bits):
         ret.append(num >> i & 1)
 
     return ret
+
 
 def intToBinaryList(num, bits):
     """Takes an int, returns a list of its binary number with length bits.
@@ -95,11 +106,14 @@ def intToBinaryList(num, bits):
 
     return ret
 
+
 def lowThreshold(colorDepth):
-    return ( 0.5 / ( 1 << colorDepth ) )
+    return (0.5 / (1 << colorDepth))
+
 
 def highThreshold(colorDepth):
     return 1 - lowThreshold(colorDepth)
+
 
 class InputPages:
     def __init__(self, totalPages, height, width):
@@ -111,6 +125,7 @@ class InputPages:
         """For caller to implement"""
         pass
 
+
 class InputPage:
     def __init__(self, pages, pageNum):
         self.pages = pages
@@ -121,10 +136,12 @@ class InputPage:
     def getPixel(self, y, x):
         return self.pages.getPagePixel(self.pageNum, y, x)
 
-# TODO: Channels and values (colors and shades) should be stored in metadata header separately. Remove notion of 
+# TODO: Channels and values (colors and shades) should be stored in metadata header separately. Remove notion of
 #       "color".
 #       Many values and 1 channel is like a laser-depth engraving. Many channels and 1 value is like atoms.
 #       Cmd program can simplify with Grayscale, CYMK, RGB, and higher options.
+
+
 class ColorChannels:
     """A group of color channels consisting of Red, Green, and Blue values from 0.0 to 1.0.
     """
@@ -132,12 +149,12 @@ class ColorChannels:
     GreenDefault = 0.0
     BlueDefault = 0.0
 
-    def __init__(self, red = RedDefault, green = GreenDefault, blue = BlueDefault):
+    def __init__(self, red=RedDefault, green=GreenDefault, blue=BlueDefault):
         self.red = red
         self.green = green
         self.blue = blue
 
-    def setChannels(self,channels):
+    def setChannels(self, channels):
         if len(channels) == Constants.ColorChannels:
             self.red = channels[0]
             self.green = channels[1]
@@ -147,7 +164,7 @@ class ColorChannels:
             self.green = channels[0]
             self.blue = channels[0]
 
-    def multiplyShade(self,shades):
+    def multiplyShade(self, shades):
         if len(shades) == Constants.ColorChannels:
             self.red *= shades[0]
             self.green *= shades[1]
@@ -157,7 +174,7 @@ class ColorChannels:
             self.green *= shades[0]
             self.blue *= shades[0]
 
-    def subtractShade(self,shade):
+    def subtractShade(self, shade):
         self.red -= shade
         self.green -= shade
         self.blue -= shade
@@ -166,17 +183,20 @@ class ColorChannels:
         return (self.red, self.green, self.blue)
 
     def getAverageShade(self):
-        return (self.red + self.green + self.blue)/Constants.ColorChannels
+        return (self.red + self.green + self.blue) / Constants.ColorChannels
+
 
 class Dot:
     """A group of channels representing a group of colorDepth bits.
 
     There are three modes of encoding a color into a dot: shade, primary, and secondary.
     """
+
     def getChannelNum(self, bitCount):
         """Get channel number based on how many bits (based on colorDepth) are needed. Currently, this maps 1:1.
         """
-        # TODO: Make these modes options for any colorDepth, add to metadata header.
+        # TODO: Make these modes options for any colorDepth, add to metadata
+        # header.
         if bitCount % Constants.ColorChannels == 0:
             channelNum = Constants.ColorChannels
         elif bitCount % Constants.ColorChannels2 == 0:
@@ -191,16 +211,16 @@ class Dot:
         """Primary mode: Divide list into 2. Each half's first bit represents color, the rest combined represent shade.
         Return color channels. Thus, the shade alone represents (colorDepth-2) bits of information.
         """
-        firstHalf = bitList[0:len(bitList)/2]
-        secondHalf = bitList[len(bitList)/2:len(bitList)]
+        firstHalf = bitList[0:len(bitList) / 2]
+        secondHalf = bitList[len(bitList) / 2:len(bitList)]
 
         firstHalfFirstBit = firstHalf.pop(0)
         secondHalfFirstBit = secondHalf.pop(0)
 
         # A terse way to map 2 bits to 4 colors (00: White, 01: Magenta, 10: Cyan, 11: Yellow)
         # TODO: Swap magenta and cyan?
-        index = binaryListToVal([firstHalfFirstBit,secondHalfFirstBit])
-        color = [1.0]*(Constants.ColorChannels+1)
+        index = binaryListToVal([firstHalfFirstBit, secondHalfFirstBit])
+        color = [1.0] * (Constants.ColorChannels + 1)
         color[index] = 0
         color = tuple(color[1:])
 
@@ -222,10 +242,10 @@ class Dot:
         G, or B. With 1-color channel, list is not divided, and the entire list corresponds to the shade of gray.
         """
         channelVals = list()
-        bpc = len(bitList)/channelNum # Bits per channel
+        bpc = len(bitList) / channelNum  # Bits per channel
 
         for b in range(0, len(bitList), bpc):
-            channelBits = bitList[b : b + bpc]
+            channelBits = bitList[b: b + bpc]
             channelVal = binaryListToFloat(channelBits)
             channelVals.append(channelVal)
 
@@ -252,7 +272,11 @@ class Dot:
         bitList = list()
 
         for channel in channels.getChannels():
-            bitList.extend(floatToBinaryList(channel, colorDepth/Constants.ColorChannels))
+            bitList.extend(
+                floatToBinaryList(
+                    channel,
+                    colorDepth /
+                    Constants.ColorChannels))
 
         return bitList
 
@@ -267,31 +291,35 @@ class Dot:
         zeroPosition = 0
         shadeBits = colorDepth - 2
 
-        # Find the color, e.g. the 0 position, if channel is less than the threshold: half the smallest possible value.
-        for i,channel in enumerate(channels.getChannels()):
+        # Find the color, e.g. the 0 position, if channel is less than the
+        # threshold: half the smallest possible value.
+        for i, channel in enumerate(channels.getChannels()):
             if channel < 0.5 / (1 << shadeBits):
                 zeroPosition = i + 1
                 break
 
-        # These two bits are set by the color itself: 0 -> 00, 1 -> 10, 2 -> 01, 3 -> 11
-        firstHalfFirstBit, secondHalfFirstBit = intToBinaryList(zeroPosition, Constants.ColorChannels2)
+        # These two bits are set by the color itself: 0 -> 00, 1 -> 10, 2 ->
+        # 01, 3 -> 11
+        firstHalfFirstBit, secondHalfFirstBit = intToBinaryList(
+            zeroPosition, Constants.ColorChannels2)
 
         # Remove zero position, since it won't contribute to the shade value
         setChannels = list(channels.getChannels())
         if zeroPosition >= 1:
-            setChannels.pop(zeroPosition-1)
+            setChannels.pop(zeroPosition - 1)
 
         # Get average shade value
-        valAvg = float(sum(setChannels))/len(setChannels)
+        valAvg = float(sum(setChannels)) / len(setChannels)
 
-        # Get the shade bits, insert the first two color bits at first and halfway positions
+        # Get the shade bits, insert the first two color bits at first and
+        # halfway positions
         bitList = floatToBinaryList(valAvg, shadeBits)
-        bitList.insert(0,firstHalfFirstBit)
-        bitList.insert(colorDepth/2,secondHalfFirstBit)
+        bitList.insert(0, firstHalfFirstBit)
+        bitList.insert(colorDepth / 2, secondHalfFirstBit)
 
         return bitList
 
-    def decode(self, channels, colorDepth, thresholdWeight = 0.0):
+    def decode(self, channels, colorDepth, thresholdWeight=0.0):
         """Takes in a list of channels, returns a list of bytes
         """
         channelNum = self.getChannelNum(colorDepth)
@@ -302,7 +330,8 @@ class Dot:
             bitList = self.decodePrimaryMode(channels, colorDepth)
 
         if channelNum == Constants.ColorChannels1:
-            bitList = self.decodeShadeMode(channels, colorDepth, thresholdWeight)
+            bitList = self.decodeShadeMode(
+                channels, colorDepth, thresholdWeight)
 
         if channelNum == Constants.ColorChannels2:
             bitList = self.decodeSecondaryMode(channels, colorDepth)
@@ -313,11 +342,13 @@ class Dot:
     def getChannels(self):
         return self.channels.getChannels()
 
+
 class DotByte:
     """A group of 8 Dots, representing colorDepth bytes of data.
     """
-    #TODO: Consider a constructor with colorDepth arg, since both functions use it
-    #TODO: Encode should return ColorChannels object, not Dot.
+    # TODO: Consider a constructor with colorDepth arg, since both functions use it
+    # TODO: Encode should return ColorChannels object, not Dot.
+
     def encode(self, bytesList, colorDepth):
         """Takes in a list of up to colorDepth bytes, returns a list of ByteSize (8) encoded dots.
 
@@ -327,7 +358,8 @@ class DotByte:
         for i in range(Constants.ByteSize):
             vals = list()
 
-            # Ensure colorDepth bytes are added, even if bytesList doesn't have enough data (0-pad)
+            # Ensure colorDepth bytes are added, even if bytesList doesn't have
+            # enough data (0-pad)
             for b in range(colorDepth):
                 byte = Constants.Byte00
 
@@ -344,7 +376,7 @@ class DotByte:
         self.dots = dots
         return dots
 
-    def decode(self, channelsList, colorDepth, thresholdWeight = 0.0):
+    def decode(self, channelsList, colorDepth, thresholdWeight=0.0):
         """Takes in a list of exactly ByteSize (8) channels, returns a list of decoded bytes.
 
         Sets each dot's decoded data into colorDepth bytes.
@@ -354,7 +386,8 @@ class DotByte:
             bytesList.append(Constants.Byte00)
 
         for i in range(Constants.ByteSize):
-            channel = channelsList[i] #If channelsList has less than 8 channel, explicitly fail
+            # If channelsList has less than 8 channel, explicitly fail
+            channel = channelsList[i]
 
             dot = Dot()
             data = dot.decode(channel, colorDepth, thresholdWeight)
@@ -364,6 +397,7 @@ class DotByte:
 
         self.bytesList = bytesList
         return bytesList
+
 
 class DotRow:
     """A horizontal group of DotBytes.
@@ -380,7 +414,7 @@ class DotRow:
     def getXORMask(self, rowNumber):
         return Constants.Byte55 if rowNumber % 2 == 0 else Constants.ByteAA
 
-    def encode(self, bytesList, colorDepth, width, rowNumber, xorRow = True):
+    def encode(self, bytesList, colorDepth, width, rowNumber, xorRow=True):
         """Takes in a list of bytes, returns a list of encoded dotBytes.
 
         Performs an XOR on each byte, alternating between AA and 55 per row to prevent rows/columns of 0's or 1's.
@@ -391,7 +425,7 @@ class DotRow:
 
         # TODO: Set AMB metadata parameter instead. Fix this - fails when magic row is intended.
         # If the bytes to be encoded represent the magic row, fail.
-        #if bytesList == DotRow.getMagicRowBytes(colorDepth, width):
+        # if bytesList == DotRow.getMagicRowBytes(colorDepth, width):
         #    return None
 
         maxRowBytes = self.getMaxRowBytes(colorDepth, width)
@@ -399,14 +433,15 @@ class DotRow:
 
         dotBytes = list()
         for inByte in range(0, maxRowBytes, colorDepth):
-            bl = bytesList[inByte : inByte + colorDepth] 
+            bl = bytesList[inByte: inByte + colorDepth]
 
             if len(bl) < colorDepth:
-                bl.extend( [Constants.Byte00] * (colorDepth - len(bl)) )
+                bl.extend([Constants.Byte00] * (colorDepth - len(bl)))
 
             blTemp = list()
             for b in bl:
-                # Valid bytesList inputs are strings (e.g. read from a file) or ints (e.g. metadata header constants).
+                # Valid bytesList inputs are strings (e.g. read from a file) or
+                # ints (e.g. metadata header constants).
                 try:
                     if xorRow:
                         blTemp.append(ord(b) ^ mask)
@@ -425,7 +460,14 @@ class DotRow:
         self.dotBytes = dotBytes
         return dotBytes
 
-    def decode(self, channelsList, colorDepth, width, rowNumber, thresholdWeight = 0.0, xorRow = True):
+    def decode(
+            self,
+            channelsList,
+            colorDepth,
+            width,
+            rowNumber,
+            thresholdWeight=0.0,
+            xorRow=True):
         """Takes in a list of width channels, returns a list of decoded bytes
         """
         if width % Constants.ByteSize != 0:
@@ -435,12 +477,12 @@ class DotRow:
 
         bytesList = list()
         for w in range(0, width, Constants.ByteSize):
-            channels = channelsList[w : w + Constants.ByteSize]
+            channels = channelsList[w: w + Constants.ByteSize]
             db = DotByte()
             data = db.decode(channels, colorDepth, thresholdWeight)
             bytesList.extend(data)
 
-        for i,byte in enumerate(bytesList):
+        for i, byte in enumerate(bytesList):
             if xorRow:
                 bytesList[i] = bytesList[i] ^ mask
             else:
@@ -449,14 +491,16 @@ class DotRow:
         self.bytesList = bytesList
         return bytesList
 
+
 class Sector:
     """A vertical group of DotRows.
     """
     @staticmethod
     def getDataRowCount(height, eccRate):
-        return int ( math.floor( ( height - Constants.MagicRowHeight ) / ( 1 + eccRate ) ) )
+        return int(math.floor(
+            (height - Constants.MagicRowHeight) / (1 + eccRate)))
 
-    def encode(self, data, colorDepth, height, width, eccRate, dataStart = 0):
+    def encode(self, data, colorDepth, height, width, eccRate, dataStart=0):
         """Takes in a list of bytes, returns a list of dotRows
         """
         self.height = height
@@ -469,7 +513,15 @@ class Sector:
         self.putData(dataStart)
         self.putECCData(dataStart)
 
-    def decode(self, channelsList, colorDepth, height, width, dataRowCount, eccRate, thresholdWeight):
+    def decode(
+            self,
+            channelsList,
+            colorDepth,
+            height,
+            width,
+            dataRowCount,
+            eccRate,
+            thresholdWeight):
         """Takes in a list of height*width channels, returns a list of decoded data/ecc bytes
         """
         dataRows = list()
@@ -482,11 +534,12 @@ class Sector:
         self.eccRate = eccRate
         self.getBlockSizes()
 
-        for row in range(0, height*width, width):
-            channels = channelsList[row : row + width]
+        for row in range(0, height * width, width):
+            channels = channelsList[row: row + width]
             dotRow = DotRow()
-            rowNum = row/width
-            bytesList = dotRow.decode(channels, colorDepth, width, rowNum, thresholdWeight)
+            rowNum = row / width
+            bytesList = dotRow.decode(
+                channels, colorDepth, width, rowNum, thresholdWeight)
 
             if row < dataRowCount * width:
                 dataRows.extend(bytesList)
@@ -507,30 +560,36 @@ class Sector:
         self.dataRowCount = Sector.getDataRowCount(self.height, self.eccRate)
         self.eccRowCount = self.height - Constants.MagicRowHeight - self.dataRowCount
 
-        totalBytes = ( self.height - 1 ) * self.width * self.colorDepth / Constants.ByteSize
+        totalBytes = (self.height - 1) * self.width * \
+            self.colorDepth / Constants.ByteSize
 
         if totalBytes <= Constants.RSBlockSizeMax:
             self.rsBlockSizes.append(totalBytes)
         else:
-            self.rsBlockSizes = [ Constants.RSBlockSizeMax ] * (totalBytes/Constants.RSBlockSizeMax)
+            self.rsBlockSizes = [Constants.RSBlockSizeMax] * \
+                (totalBytes / Constants.RSBlockSizeMax)
 
             if totalBytes % Constants.RSBlockSizeMax != 0:
-                self.rsBlockSizes.append( totalBytes % Constants.RSBlockSizeMax )
+                self.rsBlockSizes.append(totalBytes % Constants.RSBlockSizeMax)
 
-                lastVal = int( math.floor( ( self.rsBlockSizes[-1] + self.rsBlockSizes[-2] ) / 2.0 ) )
-                secondLastVal = int ( math.ceil( ( self.rsBlockSizes[-1] + self.rsBlockSizes[-2] ) / 2.0 ) )
+                lastVal = int(math.floor(
+                    (self.rsBlockSizes[-1] + self.rsBlockSizes[-2]) / 2.0))
+                secondLastVal = int(math.ceil(
+                    (self.rsBlockSizes[-1] + self.rsBlockSizes[-2]) / 2.0))
 
                 self.rsBlockSizes[-1] = lastVal
                 self.rsBlockSizes[-2] = secondLastVal
 
         for size in self.rsBlockSizes:
-            dataRowPercentage = float(self.dataRowCount) / ( self.height - Constants.MagicRowHeight )
-            eccRowPercentage = float(self.eccRowCount) / ( self.height - Constants.MagicRowHeight )
+            dataRowPercentage = float(
+                self.dataRowCount) / (self.height - Constants.MagicRowHeight)
+            eccRowPercentage = float(self.eccRowCount) / (self.height - Constants.MagicRowHeight)
 
-            self.dataBlockSizes.append( int ( math.floor( size * dataRowPercentage ) ) )
-            self.eccBlockSizes.append( int ( math.ceil( size * eccRowPercentage ) ) )
+            self.dataBlockSizes.append(
+                int(math.floor(size * dataRowPercentage)))
+            self.eccBlockSizes.append(int(math.ceil(size * eccRowPercentage)))
 
-    def putData(self, dataStart = 0):
+    def putData(self, dataStart=0):
         """Takes in a list of data, returns a list of dataRows
         """
         self.dataRows = list()
@@ -540,26 +599,31 @@ class Sector:
             minIndex = dataStart + row * bytesPerRow
             maxIndex = dataStart + ((row + 1) * bytesPerRow)
 
-            insertData = self.data[ minIndex : maxIndex ]
+            insertData = self.data[minIndex: maxIndex]
             insertRow = DotRow()
-            insertRow.encode( list(insertData), self.colorDepth, self.width, row )
+            insertRow.encode(
+                list(insertData),
+                self.colorDepth,
+                self.width,
+                row)
             self.dataRows.append(insertRow)
 
-    def putECCData(self, dataStart = 0):
+    def putECCData(self, dataStart=0):
         eccData = list()
 
-        totalBytes = ( self.height - 1 ) * self.width / Constants.ByteSize
-        for i,rsBlockLength in enumerate(self.rsBlockSizes):
+        totalBytes = (self.height - 1) * self.width / Constants.ByteSize
+        for i, rsBlockLength in enumerate(self.rsBlockSizes):
             messageLength = self.dataBlockSizes[i]
             errorLength = self.eccBlockSizes[i]
             rsEncoder = RSCoder(rsBlockLength, messageLength)
 
             minIndex = dataStart + sum(self.dataBlockSizes[:i])
-            maxIndex = dataStart + sum(self.dataBlockSizes[:i+1])
+            maxIndex = dataStart + sum(self.dataBlockSizes[:i + 1])
 
-            dataBlock = list(self.data[ minIndex : maxIndex ])
+            dataBlock = list(self.data[minIndex: maxIndex])
             if len(dataBlock) < messageLength:
-                dataBlock.extend([chr(Constants.Byte00)] * (messageLength - len(dataBlock)))
+                dataBlock.extend([chr(Constants.Byte00)] *
+                                 (messageLength - len(dataBlock)))
             dbTemp = ""
             for c in dataBlock:
                 try:
@@ -573,15 +637,20 @@ class Sector:
             eccData.extend(eccBlock)
 
         eccMagicRow = DotRow()
-        eccMagicRow.encode(DotRow.getMagicRowBytes(self.colorDepth, self.width), self.colorDepth, self.width, \
+        eccMagicRow.encode(
+            DotRow.getMagicRowBytes(
+                self.colorDepth,
+                self.width),
+            self.colorDepth,
+            self.width,
             self.dataRowCount)
 
-        self.eccRows = [ eccMagicRow ]
+        self.eccRows = [eccMagicRow]
         bytesPerRow = self.width * self.colorDepth / Constants.ByteSize
         for row in range(self.eccRowCount):
-            insertData = eccData[ row * bytesPerRow : (row + 1) * bytesPerRow ]
+            insertData = eccData[row * bytesPerRow: (row + 1) * bytesPerRow]
             insertRow = DotRow()
-            insertRow.encode( insertData, self.colorDepth, self.width, row )
+            insertRow.encode(insertData, self.colorDepth, self.width, row)
             self.eccRows.append(insertRow)
 
         self.eccData = eccData
@@ -592,6 +661,7 @@ class Sector:
 
     def putECCbit(self, i):
         pass
+
 
 class Metadata:
     eccMode = "ECC"
@@ -617,10 +687,21 @@ class Metadata:
 
     # Required, in no order
     # TODO: Some of these should possibly be required on each page
-    RequiredNoOrder = [ambiguous, crc32CCheck, eccRate, majorVersion, minorVersion, revisionVersion, fileSize, \
-        csCreationTime, totalPages, fileExtension, filename]
+    RequiredNoOrder = [
+        ambiguous,
+        crc32CCheck,
+        eccRate,
+        majorVersion,
+        minorVersion,
+        revisionVersion,
+        fileSize,
+        csCreationTime,
+        totalPages,
+        fileExtension,
+        filename]
 
     # TODO: Filename/ext not required, how to track?
+
 
 class MetadataSector(Sector):
     MetadataInitPaddingBytes = 1
@@ -635,21 +716,23 @@ class MetadataSector(Sector):
         self.width = width
         self.colorDepth = colorDepth
         self.eccRate = eccRate
-        self.dataStart = 0 #TODO: Make this an argument for putdata, not a self object
+        self.dataStart = 0  # TODO: Make this an argument for putdata, not a self object
 
         self.getBlockSizes()
         self.putMetadata(metadata)
         self.putData()
         self.putECCData()
 
-    #TODO: This only supports values less than 256. It XOR's inelegantly. Fix it, add non-xor method to DotByte?
+    # TODO: This only supports values less than 256. It XOR's inelegantly. Fix
+    # it, add non-xor method to DotByte?
     def getMetadataSchemeBytes(self):
-        ret = [self.MetadataDefaultScheme ^ Constants.Byte55]*self.colorDepth
-        ret += [Constants.Byte55]*self.colorDepth*(self.MetadataSchemeBytes-1)
+        ret = [self.MetadataDefaultScheme ^ Constants.Byte55] * self.colorDepth
+        ret += [Constants.Byte55] * self.colorDepth * \
+            (self.MetadataSchemeBytes - 1)
         return ret
 
     def getColorDepthBytes(self):
-        return [self.colorDepth ^ Constants.Byte55]*self.colorDepth
+        return [self.colorDepth ^ Constants.Byte55] * self.colorDepth
 
     def putMetadata(self, metadata):
         self.metadata = dict()
@@ -658,19 +741,26 @@ class MetadataSector(Sector):
         self.data = DotRow.getMagicRowBytes(self.colorDepth, self.width)
 
         # Multiply each by self.colorDepth to make these effectively black and white
-        # TODO: Header 11110000/00001111 instead of 11111111 - less likely to collide/smudge first/last bit.
-        self.data.extend([Constants.ByteAA]*self.MetadataInitPaddingBytes*self.colorDepth)
+        # TODO: Header 11110000/00001111 instead of 11111111 - less likely to
+        # collide/smudge first/last bit.
+        self.data.extend([Constants.ByteAA] *
+                         self.MetadataInitPaddingBytes *
+                         self.colorDepth)
         self.data.extend(self.getColorDepthBytes())
         self.data.extend(self.getMetadataSchemeBytes())
-        self.data.extend([Constants.ByteAA]*self.MetadataEndPaddingBytes*self.colorDepth)
+        self.data.extend([Constants.ByteAA] *
+                         self.MetadataEndPaddingBytes *
+                         self.colorDepth)
 
         # Format metadata, interleave lists and 0-byte join
         # TODO: Encode ints not in ascii
         for (key, value) in metadata.items():
-            kvString = str(key) + chr(Constants.Byte00) + (str(value) if value else "") + chr(Constants.Byte00)
+            kvString = str(key) + chr(Constants.Byte00) + \
+                (str(value) if value else "") + chr(Constants.Byte00)
 
-            #TODO: Get from static method?
-            maxDataPerSector = Sector.getDataRowCount(self.height, self.eccRate) * self.width * self.colorDepth
+            # TODO: Get from static method?
+            maxDataPerSector = Sector.getDataRowCount(
+                self.height, self.eccRate) * self.width * self.colorDepth
             if len(kvString) + len(self.data) < maxDataPerSector:
                 self.data.extend([ord(i) for i in kvString])
                 self.metadata[key] = value
@@ -690,10 +780,12 @@ class MetadataSector(Sector):
         self.metadata[key] = value
         self.putMetadata(self.metadata)
 
+
 class Page:
     """A collection of sectors, used for shuffling and placing them correctly on each page, and for keeping track of
     page specific properties, like page number.
     """
+
     def encode(self,
                dataSectors,
                metadataSectors,
@@ -736,7 +828,13 @@ class Page:
         sectors = list()
         for channelsList in channelsSectorList:
             s = Sector()
-            s.decode(channelsList, colorDepth, sectorHeight, sectorWidth, dataRows, thresholdWeight)
+            s.decode(
+                channelsList,
+                colorDepth,
+                sectorHeight,
+                sectorWidth,
+                dataRows,
+                thresholdWeight)
             sectors.add(s)
 
         self.sectors = sectors
@@ -744,12 +842,14 @@ class Page:
     def putMetadataSectors(self):
         """Put all metadata sectors into this page, using method from the spec: random-reproducible
         """
-        self.sectors = [None] * (len(self.dataSectors) + len(self.metadataSectors))
+        self.sectors = [None] * \
+            (len(self.dataSectors) + len(self.metadataSectors))
 
         random.seed(self.pageNumber)
         allMetadataPagePositions = range(0, len(self.sectors))
         random.shuffle(allMetadataPagePositions)
-        self.metadataSectorsPositions = allMetadataPagePositions[ : len(self.metadataSectors) ]
+        self.metadataSectorsPositions = allMetadataPagePositions[: len(
+            self.metadataSectors)]
 
         metadataSectorIndex = 0
         for i in self.metadataSectorsPositions:
@@ -764,10 +864,11 @@ class Page:
     def putDataSectors(self):
         """Put all data sectors into this page, around all metadata sectors
         """
-        self.dataSectorCount = (self.sectorsVertical*self.sectorsHorizontal)-len(self.metadataSectors)
+        self.dataSectorCount = (
+            self.sectorsVertical * self.sectorsHorizontal) - len(self.metadataSectors)
         dataSectorIndex = 0
-        for sectorIndex,sector in enumerate(self.sectors):
-            if sector == None:
+        for sectorIndex, sector in enumerate(self.sectors):
+            if sector is None:
                 self.sectors[sectorIndex] = self.dataSectors[dataSectorIndex]
                 dataSectorIndex += 1
 
@@ -777,6 +878,8 @@ class Page:
         pass
 
 # The ColorSafe data and borders, all dimensions in dots.
+
+
 class ColorSafeFile:
 
     def encode(self,
@@ -802,11 +905,12 @@ class ColorSafeFile:
         self.filename = filename
         self.fileExtension = fileExtension
 
-        self.dataRowCount = Sector.getDataRowCount(self.sectorHeight, self.eccRate)
+        self.dataRowCount = Sector.getDataRowCount(
+            self.sectorHeight, self.eccRate)
 
         self.putDataSectors(self.data)
 
-        #TODO: this should account for metadata
+        # TODO: this should account for metadata
         self.maxData = self.dataPerSector * self.sectorsVertical * self.sectorsHorizontal
 
         self.createMetadataSectors()
@@ -835,14 +939,21 @@ class ColorSafeFile:
         """
         self.dataSectors = list()
 
-        self.dataPerSector = self.sectorWidth * self.colorDepth * self.dataRowCount / Constants.ByteSize
+        self.dataPerSector = self.sectorWidth * self.colorDepth * \
+            self.dataRowCount / Constants.ByteSize
 
-        for dataStart in range(0,len(self.data),self.dataPerSector):
-            # TODO: Setting data into Sector in place (using Sector's dataStart argument) may improve performance
+        for dataStart in range(0, len(self.data), self.dataPerSector):
+            # TODO: Setting data into Sector in place (using Sector's dataStart
+            # argument) may improve performance
             data = self.data[dataStart: dataStart + self.dataPerSector]
 
             s = Sector()
-            s.encode(data, self.colorDepth, self.sectorHeight, self.sectorWidth, self.eccRate)
+            s.encode(
+                data,
+                self.colorDepth,
+                self.sectorHeight,
+                self.sectorWidth,
+                self.eccRate)
 
             self.dataSectors.append(s)
 
@@ -860,7 +971,7 @@ class ColorSafeFile:
         # TODO: Must include source! Change this implementation
         crc32CCheck = binascii.crc32("0")
 
-        fileSize = len(self.data) # In bytes
+        fileSize = len(self.data)  # In bytes
 
         self.metadata[Metadata.crc32CCheck] = crc32CCheck
         self.metadata[Metadata.csCreationTime] = csCreationTime
@@ -874,19 +985,26 @@ class ColorSafeFile:
         self.metadata[Metadata.minorVersion] = Constants.MinorVersion
         self.metadata[Metadata.revisionVersion] = Constants.RevisionVersion
 
-        # This should not cause extra 0's in value; it will be updated with correct values before writing
-        self.metadata[Metadata.pageNumber] = chr(0) * Constants.TotalPagesMaxBytes
-        self.metadata[Metadata.totalPages] = chr(0) * Constants.TotalPagesMaxBytes
+        # This should not cause extra 0's in value; it will be updated with
+        # correct values before writing
+        self.metadata[Metadata.pageNumber] = chr(
+            0) * Constants.TotalPagesMaxBytes
+        self.metadata[Metadata.totalPages] = chr(
+            0) * Constants.TotalPagesMaxBytes
 
-        # Set to maximum possible. This will be updated with correct values before writing.
-        self.metadata[Metadata.metadataCount] = self.sectorsVertical * self.sectorsHorizontal 
+        # Set to maximum possible. This will be updated with correct values
+        # before writing.
+        self.metadata[Metadata.metadataCount] = self.sectorsVertical * \
+            self.sectorsHorizontal
 
         # Reverse sort metadata that has no required order
-        metadataRequiredNoOrderKeys = set([key for (key, value) in self.metadata.items()]) - \
-            set(Metadata.RequiredInOrder)
-        metadataRequiredNoOrder = [(key, self.metadata[key]) for key in metadataRequiredNoOrderKeys]
-        metadataRequiredNoOrder.sort(key = lambda tup: -len(str(tup)))
-        metadataRequiredNoOrder = [key for (key, value) in metadataRequiredNoOrder]
+        metadataRequiredNoOrderKeys = set(
+            [key for (key, value) in self.metadata.items()]) - set(Metadata.RequiredInOrder)
+        metadataRequiredNoOrder = [(key, self.metadata[key])
+                                   for key in metadataRequiredNoOrderKeys]
+        metadataRequiredNoOrder.sort(key=lambda tup: -len(str(tup)))
+        metadataRequiredNoOrder = [
+            key for (key, value) in metadataRequiredNoOrder]
 
         metadataInsertOrdered = Metadata.RequiredInOrder + metadataRequiredNoOrder
 
@@ -896,12 +1014,17 @@ class ColorSafeFile:
             for key in metadataRemaining:
                 metadataToInsert[key] = self.metadata[key]
 
-            mdSector = MetadataSector(self.sectorHeight, self.sectorWidth, self.colorDepth, self.eccRate,
+            mdSector = MetadataSector(
+                self.sectorHeight,
+                self.sectorWidth,
+                self.colorDepth,
+                self.eccRate,
                 metadataToInsert)
 
             metadataInserted = mdSector.metadata
 
-            # If required in order metadata not inserted, break; nothing else will fit anyways
+            # If required in order metadata not inserted, break; nothing else
+            # will fit anyways
             breakLoop = False
             for md in Metadata.RequiredInOrder:
                 if md not in metadataInserted:
@@ -910,14 +1033,17 @@ class ColorSafeFile:
             if breakLoop:
                 break
 
-            # If nothing additional after required metadata, remove first (largest) non-ordered metadata kv pair
+            # If nothing additional after required metadata, remove first
+            # (largest) non-ordered metadata kv pair
             if metadataInserted == Metadata.RequiredInOrder:
                 metadataRemaining.pop(len(Metadata.RequiredInOrder))
                 continue
 
             self.metadataSectors.append(mdSector)
 
-            metadataRemaining = list(set(metadataRemaining) - set(metadataInserted))
+            metadataRemaining = list(
+                set(metadataRemaining) -
+                set(metadataInserted))
 
         self.sectorsPerPage = self.sectorsVertical * self.sectorsHorizontal
 
@@ -927,13 +1053,16 @@ class ColorSafeFile:
         # The following equations are derived from the combination of two dependent equations:
         # 1. The number of metadata sectors is equal to the first one on each page, plus the rest
         # 2. Number of pages is the ceiling of data sector + metadata sector count divided by sectors per page.
-        # It is valid only for m+d>1, so use max(equation,1) to ensure it always returns one or more pages.
-        totalPages = max( int( math.ceil( float(dsCount + msCount - 1) / (self.sectorsPerPage - 1) ) ), 1)
+        # It is valid only for m+d>1, so use max(equation,1) to ensure it
+        # always returns one or more pages.
+        totalPages = max(
+            int(math.ceil(float(dsCount + msCount - 1) / (self.sectorsPerPage - 1))), 1)
         totalMetadataSectors = totalPages + msCount - 1
 
         self.totalSectors = dsCount + totalMetadataSectors
 
-        paddingMetadataSectors = self.sectorsHorizontal - (self.totalSectors % self.sectorsHorizontal)
+        paddingMetadataSectors = self.sectorsHorizontal - \
+            (self.totalSectors % self.sectorsHorizontal)
         self.totalSectors += paddingMetadataSectors
         totalMetadataSectors += paddingMetadataSectors
 
@@ -941,9 +1070,11 @@ class ColorSafeFile:
         metadataPositions = range(totalPages)
         random.seed(0)
         random.shuffle(metadataPositions)
-        metadataPositions = metadataPositions * int( math.ceil(totalMetadataSectors/totalPages) )
+        metadataPositions = metadataPositions * \
+            int(math.ceil(totalMetadataSectors / totalPages))
         metadataPositions = metadataPositions[:totalMetadataSectors]
-        metadataPositions = { i : metadataPositions.count(i) for i in metadataPositions }
+        metadataPositions = {
+            i: metadataPositions.count(i) for i in metadataPositions}
 
         self.totalPages = totalPages
         self.totalMetadataSectors = totalMetadataSectors
@@ -969,12 +1100,18 @@ class ColorSafeFile:
                 mdIterator = (mdIterator + 1) % len(metadataSectors)
 
             for sector in pageMetadataSectors:
-                sector.updateMetadata(Metadata.metadataCount, len(pageMetadataSectors))
+                sector.updateMetadata(
+                    Metadata.metadataCount,
+                    len(pageMetadataSectors))
                 sector.updateMetadata(Metadata.pageNumber, pageNum)
                 sector.updateMetadata(Metadata.totalPages, self.totalPages)
 
-            dataSectorsCount = self.sectorsVertical * self.sectorsHorizontal - len(pageMetadataSectors)
-            pageDataSectors = dataSectors[pageNum*dataSectorsCount : (pageNum+1)*dataSectorsCount]
+            dataSectorsCount = self.sectorsVertical * \
+                self.sectorsHorizontal - len(pageMetadataSectors)
+            pageDataSectors = dataSectors[pageNum *
+                                          dataSectorsCount: (pageNum +
+                                                             1) *
+                                          dataSectorsCount]
 
             p = Page()
             p.encode(pageDataSectors,
@@ -1015,26 +1152,27 @@ class ColorSafeFile:
         """
         pass
 
+
 class ColorSafeImageFiles:
     """A collection of saved ColorSafeFile objects, as images of working regions without outside borders or headers
     """
     # TODO: Black and white constants in ColorChannels
-    BorderColor = (0,0,0)
+    BorderColor = (0, 0, 0)
 
     def encode(self,
                data,
                fullWorkingHeightPixels,
                fullWorkingWidthPixels,
-               dotFillPixels = Defaults.dotFillPixels,
-               pixelsPerDot = Defaults.pixelsPerDot,
-               colorDepth = Defaults.colorDepth,
-               eccRate = Defaults.eccRate,
-               sectorHeight = Defaults.sectorHeight,
-               sectorWidth = Defaults.sectorWidth,
-               borderSize = Defaults.borderSize,
-               gapSize = Defaults.gapSize,
-               filename = Defaults.filename,
-               fileExtension = Defaults.fileExtension):
+               dotFillPixels=Defaults.dotFillPixels,
+               pixelsPerDot=Defaults.pixelsPerDot,
+               colorDepth=Defaults.colorDepth,
+               eccRate=Defaults.eccRate,
+               sectorHeight=Defaults.sectorHeight,
+               sectorWidth=Defaults.sectorWidth,
+               borderSize=Defaults.borderSize,
+               gapSize=Defaults.gapSize,
+               filename=Defaults.filename,
+               fileExtension=Defaults.fileExtension):
         """Convert ColorSafeFile into a list of formatted images, with borders and gaps, and scaled properly.
         """
 
@@ -1063,29 +1201,39 @@ class ColorSafeImageFiles:
         # Calculate sector count based on maximum allowable in working region
         self.scale = self.pixelsPerDot
 
-        # An integer representing the number of non-colored pixels representing a dot for respective sides.
+        # An integer representing the number of non-colored pixels representing
+        # a dot for respective sides.
         dotWhitespace = self.pixelsPerDot - self.dotFillPixels
-        self.dotWhitespaceTop = int(math.floor(float(dotWhitespace)/2))
-        self.dotWhitespaceBottom = int(math.ceil(float(dotWhitespace)/2))
-        self.dotWhitespaceLeft = int(math.floor(float(dotWhitespace)/2))
-        self.dotWhitespaceRight = int(math.ceil(float(dotWhitespace)/2))
+        self.dotWhitespaceTop = int(math.floor(float(dotWhitespace) / 2))
+        self.dotWhitespaceBottom = int(math.ceil(float(dotWhitespace) / 2))
+        self.dotWhitespaceLeft = int(math.floor(float(dotWhitespace) / 2))
+        self.dotWhitespaceRight = int(math.ceil(float(dotWhitespace) / 2))
 
         # In dots, excluding overlapping borders
         self.sectorHeightTotal = self.sectorHeight + self.borderSize + 2 * self.gapSize
         self.sectorWidthTotal = self.sectorWidth + self.borderSize + 2 * self.gapSize
 
-        # Remove single extra non-overlapping border at the bottom-right of working region
-        self.sectorsVertical = float(self.fullWorkingHeightPixels - self.scale*self.borderSize)
-        self.sectorsVertical /= self.scale*self.sectorHeightTotal
+        # Remove single extra non-overlapping border at the bottom-right of
+        # working region
+        self.sectorsVertical = float(
+            self.fullWorkingHeightPixels -
+            self.scale *
+            self.borderSize)
+        self.sectorsVertical /= self.scale * self.sectorHeightTotal
 
-        self.sectorsHorizontal = float(self.fullWorkingWidthPixels - self.scale*self.borderSize)
-        self.sectorsHorizontal /= self.scale*self.sectorWidthTotal
+        self.sectorsHorizontal = float(
+            self.fullWorkingWidthPixels -
+            self.scale *
+            self.borderSize)
+        self.sectorsHorizontal /= self.scale * self.sectorWidthTotal
 
-        self.sectorsVertical = int ( math.floor(self.sectorsVertical) )
-        self.sectorsHorizontal = int ( math.floor(self.sectorsHorizontal) )
+        self.sectorsVertical = int(math.floor(self.sectorsVertical))
+        self.sectorsHorizontal = int(math.floor(self.sectorsHorizontal))
 
-        self.workingHeightPixels = (self.sectorsVertical * self.sectorHeightTotal + self.borderSize) * self.scale
-        self.workingWidthPixels = (self.sectorsHorizontal * self.sectorWidthTotal + self.borderSize) * self.scale
+        self.workingHeightPixels = (
+            self.sectorsVertical * self.sectorHeightTotal + self.borderSize) * self.scale
+        self.workingWidthPixels = (
+            self.sectorsHorizontal * self.sectorWidthTotal + self.borderSize) * self.scale
 
         self.csFile = ColorSafeFile()
         self.csFile.encode(data,
@@ -1110,7 +1258,8 @@ class ColorSafeImageFiles:
         if not colorDepth or colorDepth < 0 or colorDepth > Constants.ColorDepthMax:
             colorDepth = Defaults.colorDepth
 
-        # Put each sector's data into a cleaned channelsList, 1 set of channels per dot
+        # Put each sector's data into a cleaned channelsList, 1 set of channels
+        # per dot
         dataStr = ""
         metadataStr = ""
 
@@ -1124,7 +1273,8 @@ class ColorSafeImageFiles:
             verticalBounds = self.findSkewBounds(page, verticalSkew, True)
             horizontalBounds = self.findSkewBounds(page, horizontalSkew, False)
 
-            bounds = self.getSkewSectorBounds(verticalBounds, horizontalBounds, verticalSkew, horizontalSkew)
+            bounds = self.getSkewSectorBounds(
+                verticalBounds, horizontalBounds, verticalSkew, horizontalSkew)
 
             sectorsVertical = len(verticalBounds)
             sectorsHorizontal = len(horizontalBounds)
@@ -1147,7 +1297,7 @@ class ColorSafeImageFiles:
                 heightPerDot = float(bottomTemp - topTemp + 1) / (sectorHeight + 2 * gapSize)
                 widthPerDot = float(rightTemp - leftTemp + 1) / (sectorWidth + 2 * gapSize)
 
-                if widthPerDot < 1.0: # Less than 1.0x resolution, cannot get all dots
+                if widthPerDot < 1.0:  # Less than 1.0x resolution, cannot get all dots
                     raise DecodingError
 
                 # Find real gaps, since small rotation across a large page may distort this.
@@ -1163,14 +1313,39 @@ class ColorSafeImageFiles:
 
                 gapThreshold = 0.75
 
-                top = self.getSectorBounds(page, topmostTop, bottommostTop, rightmostLeft, leftmostRight,
-                                           gapThreshold)
-                bottom = self.getSectorBounds(page, topmostBottom, bottommostBottom, rightmostLeft, leftmostRight,
-                                              gapThreshold, True, True)
-                left = self.getSectorBounds(page, leftmostLeft, rightmostLeft, bottommostTop, topmostBottom,
-                                            gapThreshold, False)
-                right = self.getSectorBounds(page, leftmostRight, rightmostRight, bottommostTop, topmostBottom,
-                                             gapThreshold, False, True)
+                top = self.getSectorBounds(
+                    page,
+                    topmostTop,
+                    bottommostTop,
+                    rightmostLeft,
+                    leftmostRight,
+                    gapThreshold)
+                bottom = self.getSectorBounds(
+                    page,
+                    topmostBottom,
+                    bottommostBottom,
+                    rightmostLeft,
+                    leftmostRight,
+                    gapThreshold,
+                    True,
+                    True)
+                left = self.getSectorBounds(
+                    page,
+                    leftmostLeft,
+                    rightmostLeft,
+                    bottommostTop,
+                    topmostBottom,
+                    gapThreshold,
+                    False)
+                right = self.getSectorBounds(
+                    page,
+                    leftmostRight,
+                    rightmostRight,
+                    bottommostTop,
+                    topmostBottom,
+                    gapThreshold,
+                    False,
+                    True)
 
                 top = top if top else topTemp
                 bottom = bottom if bottom else bottomTemp
@@ -1186,13 +1361,16 @@ class ColorSafeImageFiles:
                 for x in range(left + 1, right + 1):
                     allRowBoundaryChanges = 0
                     for y in range(top, bottom + 1):
-                        current = page.getPixel(y,x)
-                        previous = page.getPixel(y,x-1)
+                        current = page.getPixel(y, x)
+                        previous = page.getPixel(y, x - 1)
 
                         for i in range(len(current)):
-                            bucketCurrent = (0 if current[i] < boundaryThreshold else 1)
-                            bucketPrevious = (0 if previous[i] < boundaryThreshold else 1)
-                            # Get white to black only, seems to be more consistent
+                            bucketCurrent = (
+                                0 if current[i] < boundaryThreshold else 1)
+                            bucketPrevious = (
+                                0 if previous[i] < boundaryThreshold else 1)
+                            # Get white to black only, seems to be more
+                            # consistent
                             if bucketCurrent != bucketPrevious and bucketCurrent == 0:
                                 allRowBoundaryChanges += 1
 
@@ -1202,35 +1380,41 @@ class ColorSafeImageFiles:
                 for y in range(top + 1, bottom + 1):
                     allColumnBoundaryChanges = 0
                     for x in range(left, right + 1):
-                        current = page.getPixel(y,x)
-                        previous = page.getPixel(y-1,x)
+                        current = page.getPixel(y, x)
+                        previous = page.getPixel(y - 1, x)
 
                         for i in range(len(current)):
-                            bucketCurrent = (0 if current[i] < boundaryThreshold else 1)
-                            bucketPrevious = (0 if previous[i] < boundaryThreshold else 1)
-                            # Get white to black only, seems to be more consistent
+                            bucketCurrent = (
+                                0 if current[i] < boundaryThreshold else 1)
+                            bucketPrevious = (
+                                0 if previous[i] < boundaryThreshold else 1)
+                            # Get white to black only, seems to be more
+                            # consistent
                             if bucketCurrent != bucketPrevious and bucketCurrent == 0:
                                 allColumnBoundaryChanges += 1
 
                     columnsBoundaryChanges.append(allColumnBoundaryChanges)
 
-                # Find the most likely dot start locations, TODO: Combine into one function
+                # Find the most likely dot start locations
+                # TODO: Combine into one function
                 avgPixelsWidth = int(round(widthPerDot))
 
-                if widthPerDot == 1.0: # Exactly 1.0, e.g. original output, or perfectly scanned
+                if widthPerDot == 1.0:  # Exactly 1.0, e.g. original output, or perfectly scanned
                     maxPixelsWidth = 1
                 else:
                     maxPixelsWidth = avgPixelsWidth + 1
 
-                minPixelsWidth = max(avgPixelsWidth - 1, 1) # Cannot be less than 1
+                minPixelsWidth = max(
+                    avgPixelsWidth - 1,
+                    1)  # Cannot be less than 1
 
                 columnDotStartLocations = list()
                 currentLocation = 0
                 for i in range(sectorHeight):
                     # TODO: Account for the gap, find initial data start
                     mnw = minPixelsWidth if i else 0
-                    possible = columnsBoundaryChanges[currentLocation + mnw : currentLocation + maxPixelsWidth + \
-                        (1 if i else 0)]
+                    possible = columnsBoundaryChanges[currentLocation +
+                                                      mnw: currentLocation + maxPixelsWidth + (1 if i else 0)]
                     if possible:
                         index = possible.index(max(possible))
                     else:
@@ -1238,16 +1422,20 @@ class ColorSafeImageFiles:
                     currentLocation += index + mnw
                     columnDotStartLocations.append(currentLocation)
 
-                # For ending, add average width to the end so that dot padding/fill is correct
-                columnDotStartLocations.append(columnDotStartLocations[-1] + avgPixelsWidth)
+                # For ending, add average width to the end so that dot
+                # padding/fill is correct
+                columnDotStartLocations.append(
+                    columnDotStartLocations[-1] + avgPixelsWidth)
 
                 rowDotStartLocations = list()
                 currentLocation = 0
                 for i in range(sectorWidth):
                     # TODO: Account for the gap, find initial data start
                     mnw = minPixelsWidth if i else 0
-                    possible = rowsBoundaryChanges[currentLocation + mnw : currentLocation + maxPixelsWidth + \
-                        (1 if i else 0)]
+                    possible = rowsBoundaryChanges[currentLocation +
+                                                   mnw: currentLocation +
+                                                   maxPixelsWidth +
+                                                   (1 if i else 0)]
                     if possible:
                         index = possible.index(max(possible))
                     else:
@@ -1255,18 +1443,20 @@ class ColorSafeImageFiles:
                     currentLocation += index + mnw
                     rowDotStartLocations.append(currentLocation)
 
-                # For ending, add average width to the end so that dot padding/fill is correct
-                rowDotStartLocations.append(rowDotStartLocations[-1] + avgPixelsWidth)
+                # For ending, add average width to the end so that dot
+                # padding/fill is correct
+                rowDotStartLocations.append(
+                    rowDotStartLocations[-1] + avgPixelsWidth)
 
-                #perc = str(int(100.0 * sectorNum / (sectorsHorizontal*sectorsVertical))) + "%"
+                # perc = str(int(100.0 * sectorNum / (sectorsHorizontal*sectorsVertical))) + "%"
 
                 minVals = [1.0, 1.0, 1.0]
                 maxVals = [0.0, 0.0, 0.0]
                 shadeBuckets = list()
-                BucketNum = 40 # TODO: Calculate dynamically?
+                BucketNum = 40  # TODO: Calculate dynamically?
                 for i in range(BucketNum):
                     shadeBuckets.append(0)
-                    
+
                 # For each dot in the sector
                 channelsList = list()
                 for y in range(sectorHeight):
@@ -1280,57 +1470,64 @@ class ColorSafeImageFiles:
                         dotPixels = list()
                         for yPixel in range(pixelsTop, pixelsBottom):
                             for xPixel in range(pixelsLeft, pixelsRight):
-                                pixel = page.getPixel(yPixel,xPixel)
+                                pixel = page.getPixel(yPixel, xPixel)
 
                                 dotPixels.append(pixel)
 
-                        # Average all pixels in the list, set into new ColorChannel
-                        R,G,B = 0,0,0 # TODO: Generalize to channels, place in ColorChannels
+                        # Average all pixels in the list, set into new
+                        # ColorChannel
+                        R, G, B = 0, 0, 0  # TODO: Generalize to channels, place in ColorChannels
                         for dotPixel in dotPixels:
-                            R1,G1,B1 = dotPixel
-                            R+=R1
-                            G+=G1
-                            B+=B1
+                            R1, G1, B1 = dotPixel
+                            R += R1
+                            G += G1
+                            B += B1
 
-                        R/=len(dotPixels)
-                        G/=len(dotPixels)
-                        B/=len(dotPixels)
-                        c = ColorChannels(R,G,B)
+                        R /= len(dotPixels)
+                        G /= len(dotPixels)
+                        B /= len(dotPixels)
+                        c = ColorChannels(R, G, B)
 
                         channelsList.append(c)
 
                         # Get min and max vals for normalization
                         vals = c.getChannels()
-                        for i,val in enumerate(vals):
+                        for i, val in enumerate(vals):
                             if val < minVals[i]:
                                 minVals[i] = val
                             if val > maxVals[i]:
                                 maxVals[i] = val
 
-                        bucketNum = int(c.getAverageShade()*BucketNum) - 1
+                        bucketNum = int(c.getAverageShade() * BucketNum) - 1
                         shadeBuckets[bucketNum] += 1
 
-                for i,channels in enumerate(channelsList):
-                    minVal = sum(minVals)/len(minVals)
-                    maxVal = sum(maxVals)/len(maxVals)
+                for i, channels in enumerate(channelsList):
+                    minVal = sum(minVals) / len(minVals)
+                    maxVal = sum(maxVals) / len(maxVals)
+
+                    if (minVal == maxVal):
+                        raise DecodingError
+
                     channels.subtractShade(minVal)
-                    channels.multiplyShade([1.0/(maxVal-minVal)])
+                    channels.multiplyShade([1.0 / (maxVal - minVal)])
 
                 # Get shade maxima locations, starting from each side
                 shadeMaximaLeft = 0
                 for i in range(2, BucketNum):
-                    if shadeBuckets[i] < shadeBuckets[i-1] and shadeBuckets[i] < shadeBuckets[i-2]:
-                        shadeMaximaLeft = i-1
+                    if shadeBuckets[i] < shadeBuckets[i - 1] and shadeBuckets[i] < shadeBuckets[i - 2]:
+                        shadeMaximaLeft = i - 1
                         break
 
                 shadeMaximaRight = BucketNum
                 for i in range(2, BucketNum)[::-1]:
-                    if shadeBuckets[i] > shadeBuckets[i-1] and shadeBuckets[i] > shadeBuckets[i-2]:
+                    if shadeBuckets[i] > shadeBuckets[i - 1] and shadeBuckets[i] > shadeBuckets[i - 2]:
                         shadeMaximaRight = i
                         break
 
                 # Get shade minima between maxima
-                shadeMinimaVal = max(shadeBuckets[shadeMaximaLeft], shadeBuckets[shadeMaximaRight])
+                shadeMinimaVal = max(
+                    shadeBuckets[shadeMaximaLeft],
+                    shadeBuckets[shadeMaximaRight])
 
                 # A good default, in case of a single maxima, or two very close
                 shadeMinima = (shadeMaximaLeft + shadeMaximaRight) / 2
@@ -1342,49 +1539,62 @@ class ColorSafeImageFiles:
 
                 s = Sector()
                 dataRows = Sector.getDataRowCount(sectorHeight, eccRate)
-                DefaultThresholdWeight = 0.5 # TODO: Move to Constants, or ColorChannels
+                DefaultThresholdWeight = 0.5  # TODO: Move to Constants, or ColorChannels
                 thresholdWeight = float(shadeMinima) / BucketNum - DefaultThresholdWeight
-                s.decode(channelsList, colorDepth, sectorHeight, sectorWidth, dataRows, eccRate, thresholdWeight)
+                s.decode(
+                    channelsList,
+                    colorDepth,
+                    sectorHeight,
+                    sectorWidth,
+                    dataRows,
+                    eccRate,
+                    thresholdWeight)
 
                 outData = "".join([chr(i) for i in s.dataRows])
-                eccData = "".join([chr(0xff - i) for i in s.eccRows]) # TODO: Why is ecc inverted?
+                # TODO: Why is ecc inverted?
+                eccData = "".join([chr(0xff - i) for i in s.eccRows])
 
-                # Perform error correction, return uncorrected RS block on failure
+                # Perform error correction, return uncorrected RS block on
+                # failure
                 correctedData = ""
                 damage = 0
                 dindex = 0
                 eindex = 0
-                for i,dbs in enumerate(s.dataBlockSizes):
+                for i, dbs in enumerate(s.dataBlockSizes):
                     ebs = s.eccBlockSizes[i]
-                    rsBlockData = outData[dindex:dindex+dbs]
-                    rsBlockEccData = eccData[eindex:eindex+ebs]
+                    rsBlockData = outData[dindex:dindex + dbs]
+                    rsBlockEccData = eccData[eindex:eindex + ebs]
                     uncorrectedStr = rsBlockData + rsBlockEccData
 
-                    rsDecoder = RSCoder(dbs+ebs, dbs)
+                    rsDecoder = RSCoder(dbs + ebs, dbs)
 
                     correctedStr = rsBlockData
 
                     # An empty or all-0's string is invalid.
-                    if len(uncorrectedStr) and any(ord(u) for u in uncorrectedStr):
+                    if len(uncorrectedStr) and any(ord(u)
+                                                   for u in uncorrectedStr):
                         rsOutput = None
 
                         try:
                             rsOutput = rsDecoder.decode(uncorrectedStr)
                             if rsOutput and len(rsOutput):
                                 correctedStr = rsOutput[0]
-                                for corrIter,corrChar in enumerate(rsOutput[0]):
+                                for corrIter, corrChar in enumerate(
+                                        rsOutput[0]):
                                     if corrChar != uncorrectedStr[corrIter]:
                                         damage += 1
-                        # More errors than can be corrected. Set damage to total number of blocks.
+                        # More errors than can be corrected. Set damage to
+                        # total number of blocks.
                         except RSCodecError:
-                            damage = dataRows*sectorWidth/Constants.ByteSize
+                            damage = dataRows * sectorWidth / Constants.ByteSize
 
                     correctedData += correctedStr
-                
+
                     dindex += dbs
                     eindex += ebs
 
-                sectorDamage.append(float(damage)/(dataRows*sectorWidth/Constants.ByteSize))
+                sectorDamage.append(
+                    float(damage) / (dataRows * sectorWidth / Constants.ByteSize))
 
                 outData = correctedData
 
@@ -1400,76 +1610,95 @@ class ColorSafeImageFiles:
         else:
             self.sectorDamageAvg = 1.0
 
-        # TODO: Need to place sectors in Page objects, then each page in a CSFile, then call CSFile.decode()
+        # TODO: Need to place sectors in Page objects, then each page in a
+        # CSFile, then call CSFile.decode()
 
         dataStr = dataStr.rstrip(chr(0))
 
         return dataStr, metadataStr
 
     def normalize(self, val, minVal, maxVal):
+        if (maxVal == minVal):
+            raise DecodingError
+
         return (val - minVal) / (maxVal - minVal)
 
-    def getSectorBounds(self, page, leastAlong, mostAlong, leastPerp, mostPerp, gapThreshold, \
-                      vertical = True, reverse = False):
+    def getSectorBounds(
+            self,
+            page,
+            leastAlong,
+            mostAlong,
+            leastPerp,
+            mostPerp,
+            gapThreshold,
+            vertical=True,
+            reverse=False):
         """Search within given rough sector bounds and return the true coordinate of the gap
         E.g. if looking for the real top gap coordinate, along is y and perp is x. Return y.
         """
-        alongRange = range(leastAlong+1, mostAlong+1)
+        alongRange = range(leastAlong + 1, mostAlong + 1)
         if reverse:
             alongRange = alongRange[::-1]
 
         for along in alongRange:
             perpShadeSum = 0.0
-            for perp in range(leastPerp, mostPerp+1):
+            for perp in range(leastPerp, mostPerp + 1):
                 y = along if vertical else perp
                 x = perp if vertical else along
 
                 if y < 0 or y >= page.height or x < 0 or x >= page.width:
                     break
 
-                perpShadeSum += average(page.getPixel(y,x))
+                perpShadeSum += average(page.getPixel(y, x))
             perpShadeSum /= (mostPerp - leastPerp)
             if perpShadeSum > gapThreshold:
                 return along
 
     @staticmethod
-    def findSkew(page, vertical = True, reverse = False):
+    def findSkew(page, vertical=True, reverse=False):
         """Find the a grid image's skew, based on the vertical (or horizontal) boolean
 
         Vertical skew is the number of pixels skewed right on the bottom side (negative if left) if the top is constant
         Horizontal skew is the number of pixels skewed down on the right side (negative if up) if the left is constant
         """
         # TODO: Binary search through perp to find first boundary. This will improve speed.
-        # TODO: Search for two or more skew lines to improve accuracy? Scale isn't known yet, so this is tricky
+        # TODO: Search for two or more skew lines to improve accuracy? Scale
+        # isn't known yet, so this is tricky
 
         dataDensity = 0.5
-        alongStep = 10 #TODO: Refine this
+        alongStep = 10  # TODO: Refine this
 
-        # Get length of column (or row) and the length of the axis perpendicular to it, row (or column)
-        alongLength = page.height if vertical else page.width # Along the axis specified by the vertical bool
-        perpLength = page.width if vertical else page.height # Perpendicular to the axis specified by the vertical bool
+        # Get length of column (or row) and the length of the axis
+        # perpendicular to it, row (or column)
+        # Along the axis specified by the vertical bool
+        alongLength = page.height if vertical else page.width
+        # Perpendicular to the axis specified by the vertical bool
+        perpLength = page.width if vertical else page.height
 
-        maxSkew = max(int(Constants.MaxSkewPerc * perpLength), Constants.MaxSkew)
+        maxSkew = max(int(Constants.MaxSkewPerc * perpLength),
+                      Constants.MaxSkew)
 
         # For each angle, find the minimum shade in the first border
         minShade = 1.0
         minShadeIter = perpLength if not reverse else 0
         bestSkew = 0
-        for skew in range(-maxSkew, maxSkew+1):
+        for skew in range(-maxSkew, maxSkew + 1):
             slope = float(skew) / alongLength
 
-            # Choose perpendicular range bounds such that sloped line will not run off the page
+            # Choose perpendicular range bounds such that sloped line will not
+            # run off the page
             perpBounds = range(min(0, skew), perpLength - max(0, skew))
             if reverse:
                 perpBounds = perpBounds[::-1]
 
             # TODO: Consider stepping perp/along 5-10 at a time for speedup
             for perpIter in perpBounds:
-                # Don't check far past the first border coordinate, in order to speed up execution
+                # Don't check far past the first border coordinate, in order to
+                # speed up execution
                 if not reverse:
-                    breakCond = (perpIter > minShadeIter + 2*maxSkew)
+                    breakCond = (perpIter > minShadeIter + 2 * maxSkew)
                 else:
-                    breakCond = (perpIter < minShadeIter - 2*maxSkew)
+                    breakCond = (perpIter < minShadeIter - 2 * maxSkew)
 
                 if breakCond:
                     break
@@ -1485,7 +1714,7 @@ class ColorSafeImageFiles:
                     x = perpValue if vertical else alongIter
                     y = alongIter if vertical else perpValue
 
-                    pixelShade = average(page.getPixel(y,x))
+                    pixelShade = average(page.getPixel(y, x))
                     skewLine.append(pixelShade)
 
                 if not len(skewLine):
@@ -1500,14 +1729,17 @@ class ColorSafeImageFiles:
 
         return bestSkew
 
-    def findSkewBounds(self, page, skew, vertical = True):
+    def findSkewBounds(self, page, skew, vertical=True):
         """Get bounds including skew
         """
-        perpStep = 3 # TODO: Refine this
+        perpStep = 3  # TODO: Refine this
 
-        # Get length of column (or row) and the length of the axis perpendicular to it, row (or column)
-        alongLength = page.height if vertical else page.width # Along the axis specified by the vertical bool
-        perpLength = page.width if vertical else page.height # Perpendicular, e.g. in the direction of the bounds
+        # Get length of column (or row) and the length of the axis
+        # perpendicular to it, row (or column)
+        # Along the axis specified by the vertical bool
+        alongLength = page.height if vertical else page.width
+        # Perpendicular, e.g. in the direction of the bounds
+        perpLength = page.width if vertical else page.height
         slope = float(skew) / perpLength
 
         # Get all skew line shade sums
@@ -1520,14 +1752,14 @@ class ColorSafeImageFiles:
                 perpValue = int(round(perpIter * slope)) + alongIter
 
                 if perpValue < 0 or perpValue >= alongLength:
-                    alongShadeSum = 1.0 * perpLength # White border
+                    alongShadeSum = 1.0 * perpLength  # White border
                     skewLine = list()
                     break
 
                 y = perpValue if vertical else perpIter
                 x = perpIter if vertical else perpValue
 
-                pixelShade = average(page.getPixel(y,x))
+                pixelShade = average(page.getPixel(y, x))
                 alongShadeSum += pixelShade
 
             channelShadeAvg.append(alongShadeSum * perpStep / perpLength)
@@ -1536,21 +1768,26 @@ class ColorSafeImageFiles:
 
         return bounds
 
-    def getSkewSectorBounds(self, verticalBounds, horizontalBounds, verticalSkew, horizontalSkew):
+    def getSkewSectorBounds(
+            self,
+            verticalBounds,
+            horizontalBounds,
+            verticalSkew,
+            horizontalSkew):
         """Given skews, get skewed bounds from non-skewed ones
         """
         bounds = list()
 
         for top, bottom in verticalBounds:
             for left, right in horizontalBounds:
-                bound = (top,bottom,left,right)
+                bound = (top, bottom, left, right)
                 bounds.append(bound)
 
         return bounds
 
     # TODO: Consider moving this logic to a new ChannelsGrid object
     # TODO: Set previousCount as average pixel width when called
-    def findBounds(self, l, previousCount = 6):
+    def findBounds(self, l, previousCount=6):
         """Given a 1D black and white grid matrix (one axis of a 2D grid matrix) return a list of beginnings and ends.
         A beginning is the first whitespace (gap) after any black border, and an end is the last whitespace (gap)
         before the next black border.
@@ -1558,62 +1795,71 @@ class ColorSafeImageFiles:
         Use whitespace after borders rather than searching for the data within each border, since the
         data may be empty or inconsistent. Borders are the most reliable unit of recognition.
         """
-        minLengthSector = 10 #TODO: Set to sectorWidth/sectorHeight
+        minLengthSector = 10  # TODO: Set to sectorWidth/sectorHeight
 
         lowBorderThreshold = 0.35
         highGapThreshold = 0.65
-        diffThreshold = 0.1 # Threshold for throwing out a value and using the mode end-begin diff instead
+        # Threshold for throwing out a value and using the mode end-begin diff
+        # instead
+        diffThreshold = 0.1
 
         # Trim leading/trailing whitespace for better min/max normalization
         borderBeginning = 0
-        for i,val in enumerate(l):
-            if self.normalize(val,min(l),max(l)) < highGapThreshold:
+        for i, val in enumerate(l):
+            if self.normalize(val, min(l), max(l)) < highGapThreshold:
                 borderBeginning = i
                 break
 
         borderEnding = len(l)
-        for i,val in reversed(list(enumerate(l))):
-            if self.normalize(val,min(l),max(l)) < highGapThreshold:
+        for i, val in reversed(list(enumerate(l))):
+            if self.normalize(val, min(l), max(l)) < highGapThreshold:
                 borderEnding = i
                 break
 
-        lTruncated = l[borderBeginning:borderEnding+1]
+        lTruncated = l[borderBeginning:borderEnding + 1]
         minVal = min(lTruncated)
         maxVal = max(lTruncated)
 
         begins = list()
         ends = list()
 
-        # Find beginning border, and then all begin/end gaps that surround sector data
-        for i,val in enumerate(l):
+        # Find beginning border, and then all begin/end gaps that surround
+        # sector data
+        for i, val in enumerate(l):
             if i < borderBeginning or i > borderEnding:
                 continue
 
             val = self.normalize(val, minVal, maxVal)
 
-            # Look for expected values to cross thresholds anywhere in the last previousCount values.
+            # Look for expected values to cross thresholds anywhere in the last
+            # previousCount values.
             previousVals = list()
             for shift in range(previousCount):
                 prevIndex = i - shift - 1
                 if prevIndex >= 0:
-                    previousVals.append(self.normalize(l[prevIndex], minVal, maxVal))
+                    previousVals.append(
+                        self.normalize(
+                            l[prevIndex], minVal, maxVal))
 
             # Begins and ends matched, looking for new begin gap
             if len(begins) == len(ends):
                 # Boundary where black turns white
-                if val > highGapThreshold and any(v < lowBorderThreshold for v in previousVals):
+                if val > highGapThreshold and any(
+                        v < lowBorderThreshold for v in previousVals):
                     begins.append(i)
                     continue
 
             # More begins than ends, looking for new end gap
             if len(ends) < len(begins):
                 # Boundary where white turns black
-                if val < lowBorderThreshold and any(v > highGapThreshold for v in previousVals):
+                if val < lowBorderThreshold and any(
+                        v > highGapThreshold for v in previousVals):
                     if i >= begins[-1] + minLengthSector:
-                        ends.append(i-1)
+                        ends.append(i - 1)
                         continue
 
-        # If begins and ends don't match, correct by cutting off excess beginning
+        # If begins and ends don't match, correct by cutting off excess
+        # beginning
         if len(begins) > len(ends):
             begins = begins[0:len(ends)]
 
@@ -1622,13 +1868,14 @@ class ColorSafeImageFiles:
             beginsDiffs = list()
             endsDiffs = list()
             for i in range(1, len(begins)):
-                beginsDiffs.append(begins[i] - begins[i-1])
-                endsDiffs.append(ends[i] - ends[i-1])
+                beginsDiffs.append(begins[i] - begins[i - 1])
+                endsDiffs.append(ends[i] - ends[i - 1])
 
             beginsDiffsMode = max(beginsDiffs, key=beginsDiffs.count)
             endsDiffsMode = max(endsDiffs, key=endsDiffs.count)
 
-            # TODO: Doesn't correct first begin or end - assumes first one is correct
+            # TODO: Doesn't correct first begin or end - assumes first one is
+            # correct
             for i in range(1, len(begins)):
                 if abs(begins[i] - begins[i - 1]) / float(beginsDiffsMode) > diffThreshold:
                     begins[i] = begins[i - 1] + beginsDiffsMode
@@ -1650,25 +1897,25 @@ class ColorSafeImageFiles:
             for row in range(self.workingHeightPixels):
                 row = list()
                 for column in range(self.workingWidthPixels):
-                    row.append((255,255,255))
+                    row.append((255, 255, 255))
                 pixels.append(row)
 
-            for si,sector in enumerate(page.sectors):
+            for si, sector in enumerate(page.sectors):
                 sx = si % page.sectorsHorizontal
                 sy = si / page.sectorsHorizontal
 
-                gapHor = self.gapSize*(2*sx+1)
-                borderHor = self.borderSize*(sx+1)
+                gapHor = self.gapSize * (2 * sx + 1)
+                borderHor = self.borderSize * (sx + 1)
 
-                gapVer = self.gapSize*(2*sy+1)
-                borderVer = self.borderSize*(sy+1)
+                gapVer = self.gapSize * (2 * sy + 1)
+                borderVer = self.borderSize * (sy + 1)
 
-                startHor = sx*page.sectorWidth + gapHor + borderHor
-                startVer = sy*page.sectorHeight + gapVer + borderVer
+                startHor = sx * page.sectorWidth + gapHor + borderHor
+                startVer = sy * page.sectorHeight + gapVer + borderVer
 
-                for ri,row in enumerate(sector.dataRows + sector.eccRows):
-                    for dbi,dotByte in enumerate(row.dotBytes):
-                        for di,dot in enumerate(dotByte.dots):
+                for ri, row in enumerate(sector.dataRows + sector.eccRows):
+                    for dbi, dotByte in enumerate(row.dotBytes):
+                        for di, dot in enumerate(dotByte.dots):
                             x = startHor + Constants.ByteSize * dbi + di
                             y = startVer + ri
 
@@ -1677,9 +1924,14 @@ class ColorSafeImageFiles:
 
                             pval = dot.getChannels()
 
-                            for xi in range(self.dotWhitespaceLeft, self.pixelsPerDot-self.dotWhitespaceRight):
-                                for yi in range(self.dotWhitespaceBottom, self.pixelsPerDot-self.dotWhitespaceTop):
-                                    pixels[y+yi][x+xi] = pval
+                            for xi in range(
+                                    self.dotWhitespaceLeft,
+                                    self.pixelsPerDot -
+                                    self.dotWhitespaceRight):
+                                for yi in range(
+                                        self.dotWhitespaceBottom,
+                                        self.pixelsPerDot - self.dotWhitespaceTop):
+                                    pixels[y + yi][x + xi] = pval
 
                 borderStartHor = startHor - self.gapSize - self.borderSize
                 borderStartVer = startVer - self.gapSize - self.borderSize
@@ -1689,17 +1941,24 @@ class ColorSafeImageFiles:
                 # TODO: Fix missing bottom-right-most pixel
                 # Draw vertical borders
                 for xscale in range(0, self.scale):
-                    for bx in [self.scale*borderStartHor + xscale, self.scale*borderEndHor + xscale]:
-                        for by in range(self.scale*borderStartVer, self.scale*borderEndVer):
+                    for bx in [
+                            self.scale * borderStartHor + xscale,
+                            self.scale * borderEndHor + xscale]:
+                        for by in range(
+                                self.scale * borderStartVer,
+                                self.scale * borderEndVer):
                             pixels[by][bx] = self.BorderColor
 
                 # Draw horizontal borders
                 for yscale in range(0, self.scale):
-                    for bx in range(self.scale*borderStartHor, self.scale*borderEndHor):
-                        for by in [self.scale*borderStartVer + yscale, self.scale*borderEndVer + yscale]:
+                    for bx in range(
+                            self.scale * borderStartHor,
+                            self.scale * borderEndHor):
+                        for by in [
+                                self.scale * borderStartVer + yscale,
+                                self.scale * borderEndVer + yscale]:
                             pixels[by][bx] = self.BorderColor
 
             self.images.append(pixels)
 
         return self.images
-
