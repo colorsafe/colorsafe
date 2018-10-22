@@ -3,6 +3,7 @@
 from csdecoder import ColorSafeDecoder
 from csencoder import ColorSafeEncoder
 import argparse
+import constants
 
 
 def encode(args):
@@ -34,6 +35,8 @@ def decode(args):
 def main():
     parser = argparse.ArgumentParser(
         description='A colorized data storage scheme for printing and scanning.')
+
+    parser.add_argument('--version', action='version', version='%(prog)s {version}'.format(version=constants.__version__))
 
     subparser = parser.add_subparsers()
 

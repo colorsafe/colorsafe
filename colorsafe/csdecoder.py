@@ -81,8 +81,8 @@ class ColorSafeDecoder:
         csFile = ColorSafeImageFiles()
         data, metadata = csFile.decode(pages, colorDepth)
 
-        print "Decoded successfully with %.2f %% average damage" % (
-            100 * csFile.sectorDamageAvg)
+        print "Decoded %d bytes with %.2f%% average damage" % (
+            len(data), 100 * csFile.sectorDamageAvg)
 
         f = open(outfile, "w")
         f.write(data)

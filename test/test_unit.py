@@ -1,6 +1,5 @@
-from colorsafe.colorsafe import Constants, ColorChannels, Dot, DotByte, DotRow
-
-MaxColorVal = 255
+from colorsafe.colorsafe import ColorChannels, Dot, DotByte, DotRow
+from colorsafe import constants
 
 # Dot
 
@@ -50,7 +49,7 @@ def test_dot_encode_colordepth3():
     assert dot.getChannels() == (1.0, 1.0, 1.0)
 
     dot.encode([1, 0, 0, 0, 1, 1])
-    assert dot.getChannels() == (85.0 / MaxColorVal, 0, 1.0)
+    assert dot.getChannels() == (85.0 / constants.ColorDepthMax, 0, 1.0)
 
     dot.encode([1, 1, 1, 1, 1, 1, 1, 1, 1])
     assert dot.getChannels() == (1.0, 1.0, 1.0)
@@ -68,11 +67,11 @@ def test_dot_decode_colordepth1():
     dot.decode(
         ColorChannels(
             94.0 /
-            MaxColorVal,
+            constants.ColorDepthMax,
             94.0 /
-            MaxColorVal,
+            constants.ColorDepthMax,
             94.0 /
-            MaxColorVal),
+            constants.ColorDepthMax),
         7)
     assert dot.bitList == [1, 1, 1, 1, 0, 1, 0]
 
@@ -89,7 +88,7 @@ def test_dot_decode_colordepth2():
     dot.decode(ColorChannels(1.0, 1.0, 0.0), 2)
     assert dot.bitList == [1, 1]
 
-    dot.decode(ColorChannels(0, 63.0 / MaxColorVal, 63.0 / MaxColorVal), 4)
+    dot.decode(ColorChannels(0, 63.0 / constants.ColorDepthMax, 63.0 / constants.ColorDepthMax), 4)
     assert dot.bitList == [1, 1, 0, 0]
 
 
@@ -118,19 +117,19 @@ def test_dotByte_encode():
     dotByte = DotByte()
 
     dotByte.encode([0xFF], 1)
-    assert len(dotByte.dots) == Constants.ByteSize
+    assert len(dotByte.dots) == constants.ByteSize
     assert dotByte.dots[0].getChannels() == (1.0, 1.0, 1.0)
 
     dotByte.encode([0xFF, 0xFF], 2)
-    assert len(dotByte.dots) == Constants.ByteSize
+    assert len(dotByte.dots) == constants.ByteSize
     assert dotByte.dots[0].getChannels() == (1.0, 1.0, 0.0)
 
     dotByte.encode([0xFF, 0xFF, 0xFF], 3)
-    assert len(dotByte.dots) == Constants.ByteSize
+    assert len(dotByte.dots) == constants.ByteSize
     assert dotByte.dots[0].getChannels() == (1.0, 1.0, 1.0)
 
     dotByte.encode([0xFF, 0xFF, 0xFF], 6)
-    assert len(dotByte.dots) == Constants.ByteSize
+    assert len(dotByte.dots) == constants.ByteSize
     assert dotByte.dots[0].getChannels() == (1.0, 1.0 / 3.0, 0.0)
 
 
@@ -139,19 +138,19 @@ def test_dotByte_decode():
     dot = Dot()
 
     c = ColorChannels(1.0, 1.0, 1.0)
-    dotByte.decode([c] * Constants.ByteSize, 1)
+    dotByte.decode([c] * constants.ByteSize, 1)
     assert dotByte.bytesList == [0xFF]
 
     c = ColorChannels(1.0, 1.0, 0.0)
-    dotByte.decode([c] * Constants.ByteSize, 2)
+    dotByte.decode([c] * constants.ByteSize, 2)
     assert dotByte.bytesList == [0xFF, 0xFF]
 
     c = ColorChannels(1.0, 1.0, 1.0)
-    dotByte.decode([c] * Constants.ByteSize, 3)
+    dotByte.decode([c] * constants.ByteSize, 3)
     assert dotByte.bytesList == [0xFF, 0xFF, 0xFF]
 
     c = ColorChannels(1.0, 1.0 / 3.0, 0.0)
-    dotByte.decode([c] * Constants.ByteSize, 6)
+    dotByte.decode([c] * constants.ByteSize, 6)
     assert dotByte.bytesList == [0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00]
 
 # DotRow

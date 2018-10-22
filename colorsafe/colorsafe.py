@@ -1,118 +1,17 @@
 #!/usr/bin/python
 
 from unireedsolomon.rs import RSCoder, RSCodecError
+from constants import Defaults
+from utils import average, binaryListToVal, binaryListToFloat, floatToBinaryList, intToBinaryList
 import binascii
+import constants
+import exceptions
 import math
 import random
 import time
 
 
-# TODO: Refactor this file into encoding/decoding libraries, utils, and constants. Data-classes might remain,
-# to be sub-classed in encoding/decoding libraries.
-
-
-class DecodingError(Exception):
-    """Raised when any error prevents decoding."""
-    pass
-
-
-class Constants:
-    ByteSize = 8
-    Byte00 = 0b00000000
-    Byte11 = 0b11111111
-    Byte55 = 0b01010101
-    ByteAA = 0b10101010
-
-    ColorChannels = 3  # R, G, B, and all secondary combinations
-    ColorChannels1 = 1  # Shades of gray only
-    ColorChannels2 = 2  # Primary subtractive colors, CMYK
-    ColorDepthMax = 2 ** ByteSize - 1
-    DataMode = 1
-    ECCMode = 1
-    MagicByte = 0b10011001
-    MagicRowHeight = 1
-    MajorVersion = 0
-    MinorVersion = 1
-    RSBlockSizeMax = 2 ** ByteSize - 1
-    RevisionVersion = 0
-    TotalPagesMaxBytes = 8  # 8 bytes per page maximum for the total-pages field
-
-    MaxSkew = 5
-    MaxSkewPerc = 0.002
-
-
-class Defaults:
-    colorDepth = 1
-    eccRate = 0.2
-
-    # All in dots
-    sectorHeight = 64
-    sectorWidth = 64
-    borderSize = 1
-    gapSize = 1  # TODO: Consider splitting to left,right,top,bottom to remove 1&2 numbers from various functions
-
-    # An integer representing the number of pixels colored in per dot per side.
-    dotFillPixels = 3
-
-    # An integer representing the number of pixels representing a dot per side.
-    # Warning: Encoding processing time increases proportionally to this value
-    pixelsPerDot = 4
-
-    filename = "out"
-    fileExtension = "txt"
-
-
-def average(l):
-    return sum(l) / len(l)
-
-
-def binaryListToVal(l):
-    """Takes a list of binary values, return an int corresponding to their value.
-    """
-    place = 1
-    val = 0
-    for i in l:
-        val += place * i
-        place = place << 1
-    return val
-
-
-def binaryListToFloat(l):
-    """Takes a list of binary values, returns a float corresponding to their fractional value.
-    """
-    f = float(binaryListToVal(l)) / ((1 << len(l)) - 1)
-    return f
-
-
-def floatToBinaryList(f, bits):
-    """Takes a float f, returns a list of binary values with a length of bits.
-    """
-    num = int(round(float(f) * ((1 << bits) - 1)))
-
-    ret = list()
-    for i in range(bits):
-        ret.append(num >> i & 1)
-
-    return ret
-
-
-def intToBinaryList(num, bits):
-    """Takes an int, returns a list of its binary number with length bits.
-    """
-    ret = list()
-
-    for i in range(bits):
-        ret.append(num >> i & 1)
-
-    return ret
-
-
-def lowThreshold(colorDepth):
-    return (0.5 / (1 << colorDepth))
-
-
-def highThreshold(colorDepth):
-    return 1 - lowThreshold(colorDepth)
+# TODO: Refactor this file into encoding/decoding libraries.
 
 
 class InputPages:
@@ -136,14 +35,13 @@ class InputPage:
     def getPixel(self, y, x):
         return self.pages.getPagePixel(self.pageNum, y, x)
 
-# TODO: Channels and values (colors and shades) should be stored in metadata header separately. Remove notion of
-#       "color".
-#       Many values and 1 channel is like a laser-depth engraving. Many channels and 1 value is like atoms.
-#       Cmd program can simplify with Grayscale, CYMK, RGB, and higher options.
-
 
 class ColorChannels:
     """A group of color channels consisting of Red, Green, and Blue values from 0.0 to 1.0.
+
+       TODO: Channels and values (colors and shades) should be stored in metadata header separately.
+#      TODO: Cmd program can simplify color/shade combos with Grayscale, CYMK, RGB, and higher options.
+
     """
     RedDefault = 0.0
     GreenDefault = 0.0
@@ -155,21 +53,21 @@ class ColorChannels:
         self.blue = blue
 
     def setChannels(self, channels):
-        if len(channels) == Constants.ColorChannels:
+        if len(channels) == constants.ColorChannels:
             self.red = channels[0]
             self.green = channels[1]
             self.blue = channels[2]
-        elif len(channels) == Constants.ColorChannels1:
+        elif len(channels) == constants.ColorChannels1:
             self.red = channels[0]
             self.green = channels[0]
             self.blue = channels[0]
 
     def multiplyShade(self, shades):
-        if len(shades) == Constants.ColorChannels:
+        if len(shades) == constants.ColorChannels:
             self.red *= shades[0]
             self.green *= shades[1]
             self.blue *= shades[2]
-        elif len(shades) == Constants.ColorChannels1:
+        elif len(shades) == constants.ColorChannels1:
             self.red *= shades[0]
             self.green *= shades[0]
             self.blue *= shades[0]
@@ -183,7 +81,7 @@ class ColorChannels:
         return (self.red, self.green, self.blue)
 
     def getAverageShade(self):
-        return (self.red + self.green + self.blue) / Constants.ColorChannels
+        return (self.red + self.green + self.blue) / constants.ColorChannels
 
 
 class Dot:
@@ -197,12 +95,12 @@ class Dot:
         """
         # TODO: Make these modes options for any colorDepth, add to metadata
         # header.
-        if bitCount % Constants.ColorChannels == 0:
-            channelNum = Constants.ColorChannels
-        elif bitCount % Constants.ColorChannels2 == 0:
-            channelNum = Constants.ColorChannels2
+        if bitCount % constants.ColorChannels == 0:
+            channelNum = constants.ColorChannels
+        elif bitCount % constants.ColorChannels2 == 0:
+            channelNum = constants.ColorChannels2
         else:
-            channelNum = Constants.ColorChannels1
+            channelNum = constants.ColorChannels1
 
         self.channelNum = channelNum
         return channelNum
@@ -220,7 +118,7 @@ class Dot:
         # A terse way to map 2 bits to 4 colors (00: White, 01: Magenta, 10: Cyan, 11: Yellow)
         # TODO: Swap magenta and cyan?
         index = binaryListToVal([firstHalfFirstBit, secondHalfFirstBit])
-        color = [1.0] * (Constants.ColorChannels + 1)
+        color = [1.0] * (constants.ColorChannels + 1)
         color[index] = 0
         color = tuple(color[1:])
 
@@ -259,10 +157,10 @@ class Dot:
         """
         channelNum = self.getChannelNum(len(bitList))
 
-        if channelNum == Constants.ColorChannels or channelNum == Constants.ColorChannels1:
+        if channelNum == constants.ColorChannels or channelNum == constants.ColorChannels1:
             channels = self.encodeSecondaryMode(bitList, channelNum)
 
-        if channelNum == Constants.ColorChannels2:
+        if channelNum == constants.ColorChannels2:
             channels = self.encodePrimaryMode(bitList)
 
         self.channels = channels
@@ -276,7 +174,7 @@ class Dot:
                 floatToBinaryList(
                     channel,
                     colorDepth /
-                    Constants.ColorChannels))
+                    constants.ColorChannels))
 
         return bitList
 
@@ -301,7 +199,7 @@ class Dot:
         # These two bits are set by the color itself: 0 -> 00, 1 -> 10, 2 ->
         # 01, 3 -> 11
         firstHalfFirstBit, secondHalfFirstBit = intToBinaryList(
-            zeroPosition, Constants.ColorChannels2)
+            zeroPosition, constants.ColorChannels2)
 
         # Remove zero position, since it won't contribute to the shade value
         setChannels = list(channels.getChannels())
@@ -326,14 +224,14 @@ class Dot:
 
         bitList = None
 
-        if channelNum == Constants.ColorChannels:
+        if channelNum == constants.ColorChannels:
             bitList = self.decodePrimaryMode(channels, colorDepth)
 
-        if channelNum == Constants.ColorChannels1:
+        if channelNum == constants.ColorChannels1:
             bitList = self.decodeShadeMode(
                 channels, colorDepth, thresholdWeight)
 
-        if channelNum == Constants.ColorChannels2:
+        if channelNum == constants.ColorChannels2:
             bitList = self.decodeSecondaryMode(channels, colorDepth)
 
         self.bitList = bitList
@@ -346,7 +244,6 @@ class Dot:
 class DotByte:
     """A group of 8 Dots, representing colorDepth bytes of data.
     """
-    # TODO: Consider a constructor with colorDepth arg, since both functions use it
     # TODO: Encode should return ColorChannels object, not Dot.
 
     def encode(self, bytesList, colorDepth):
@@ -355,13 +252,13 @@ class DotByte:
         For each input byte in bytesList, take the i'th bit and encode into a dot.
         """
         dots = list()
-        for i in range(Constants.ByteSize):
+        for i in range(constants.ByteSize):
             vals = list()
 
             # Ensure colorDepth bytes are added, even if bytesList doesn't have
             # enough data (0-pad)
             for b in range(colorDepth):
-                byte = Constants.Byte00
+                byte = constants.Byte00
 
                 if b < len(bytesList):
                     byte = bytesList[b]
@@ -383,9 +280,9 @@ class DotByte:
         """
         bytesList = list()
         for i in range(colorDepth):
-            bytesList.append(Constants.Byte00)
+            bytesList.append(constants.Byte00)
 
-        for i in range(Constants.ByteSize):
+        for i in range(constants.ByteSize):
             # If channelsList has less than 8 channel, explicitly fail
             channel = channelsList[i]
 
@@ -404,15 +301,15 @@ class DotRow:
     """
     @staticmethod
     def getMaxRowBytes(colorDepth, width):
-        return colorDepth * width / Constants.ByteSize
+        return colorDepth * width / constants.ByteSize
 
     @staticmethod
     def getMagicRowBytes(colorDepth, width):
         maxRowBytes = DotRow.getMaxRowBytes(colorDepth, width)
-        return [Constants.MagicByte] * maxRowBytes
+        return [constants.MagicByte] * maxRowBytes
 
     def getXORMask(self, rowNumber):
-        return Constants.Byte55 if rowNumber % 2 == 0 else Constants.ByteAA
+        return constants.Byte55 if rowNumber % 2 == 0 else constants.ByteAA
 
     def encode(self, bytesList, colorDepth, width, rowNumber, xorRow=True):
         """Takes in a list of bytes, returns a list of encoded dotBytes.
@@ -420,7 +317,7 @@ class DotRow:
         Performs an XOR on each byte, alternating between AA and 55 per row to prevent rows/columns of 0's or 1's.
         If less bytes are supplied than fit into a row, they will be 0-padded to fill to the end.
         """
-        if width % Constants.ByteSize != 0:
+        if width % constants.ByteSize != 0:
             return None
 
         # TODO: Set AMB metadata parameter instead. Fix this - fails when magic row is intended.
@@ -436,7 +333,7 @@ class DotRow:
             bl = bytesList[inByte: inByte + colorDepth]
 
             if len(bl) < colorDepth:
-                bl.extend([Constants.Byte00] * (colorDepth - len(bl)))
+                bl.extend([constants.Byte00] * (colorDepth - len(bl)))
 
             blTemp = list()
             for b in bl:
@@ -470,14 +367,14 @@ class DotRow:
             xorRow=True):
         """Takes in a list of width channels, returns a list of decoded bytes
         """
-        if width % Constants.ByteSize != 0:
+        if width % constants.ByteSize != 0:
             return None
 
         mask = self.getXORMask(rowNumber)
 
         bytesList = list()
-        for w in range(0, width, Constants.ByteSize):
-            channels = channelsList[w: w + Constants.ByteSize]
+        for w in range(0, width, constants.ByteSize):
+            channels = channelsList[w: w + constants.ByteSize]
             db = DotByte()
             data = db.decode(channels, colorDepth, thresholdWeight)
             bytesList.extend(data)
@@ -498,7 +395,7 @@ class Sector:
     @staticmethod
     def getDataRowCount(height, eccRate):
         return int(math.floor(
-            (height - Constants.MagicRowHeight) / (1 + eccRate)))
+            (height - constants.MagicRowHeight) / (1 + eccRate)))
 
     def encode(self, data, colorDepth, height, width, eccRate, dataStart=0):
         """Takes in a list of bytes, returns a list of dotRows
@@ -527,7 +424,6 @@ class Sector:
         dataRows = list()
         eccRows = list()
 
-        # TODO: No self, remove this
         self.height = height
         self.width = width
         self.colorDepth = colorDepth
@@ -558,19 +454,19 @@ class Sector:
         self.eccBlockSizes = list()
 
         self.dataRowCount = Sector.getDataRowCount(self.height, self.eccRate)
-        self.eccRowCount = self.height - Constants.MagicRowHeight - self.dataRowCount
+        self.eccRowCount = self.height - constants.MagicRowHeight - self.dataRowCount
 
         totalBytes = (self.height - 1) * self.width * \
-            self.colorDepth / Constants.ByteSize
+            self.colorDepth / constants.ByteSize
 
-        if totalBytes <= Constants.RSBlockSizeMax:
+        if totalBytes <= constants.RSBlockSizeMax:
             self.rsBlockSizes.append(totalBytes)
         else:
-            self.rsBlockSizes = [Constants.RSBlockSizeMax] * \
-                (totalBytes / Constants.RSBlockSizeMax)
+            self.rsBlockSizes = [constants.RSBlockSizeMax] * \
+                (totalBytes / constants.RSBlockSizeMax)
 
-            if totalBytes % Constants.RSBlockSizeMax != 0:
-                self.rsBlockSizes.append(totalBytes % Constants.RSBlockSizeMax)
+            if totalBytes % constants.RSBlockSizeMax != 0:
+                self.rsBlockSizes.append(totalBytes % constants.RSBlockSizeMax)
 
                 lastVal = int(math.floor(
                     (self.rsBlockSizes[-1] + self.rsBlockSizes[-2]) / 2.0))
@@ -582,8 +478,8 @@ class Sector:
 
         for size in self.rsBlockSizes:
             dataRowPercentage = float(
-                self.dataRowCount) / (self.height - Constants.MagicRowHeight)
-            eccRowPercentage = float(self.eccRowCount) / (self.height - Constants.MagicRowHeight)
+                self.dataRowCount) / (self.height - constants.MagicRowHeight)
+            eccRowPercentage = float(self.eccRowCount) / (self.height - constants.MagicRowHeight)
 
             self.dataBlockSizes.append(
                 int(math.floor(size * dataRowPercentage)))
@@ -593,7 +489,7 @@ class Sector:
         """Takes in a list of data, returns a list of dataRows
         """
         self.dataRows = list()
-        bytesPerRow = self.width * self.colorDepth / Constants.ByteSize
+        bytesPerRow = self.width * self.colorDepth / constants.ByteSize
 
         for row in range(self.dataRowCount):
             minIndex = dataStart + row * bytesPerRow
@@ -611,7 +507,7 @@ class Sector:
     def putECCData(self, dataStart=0):
         eccData = list()
 
-        totalBytes = (self.height - 1) * self.width / Constants.ByteSize
+        totalBytes = (self.height - 1) * self.width / constants.ByteSize
         for i, rsBlockLength in enumerate(self.rsBlockSizes):
             messageLength = self.dataBlockSizes[i]
             errorLength = self.eccBlockSizes[i]
@@ -622,7 +518,7 @@ class Sector:
 
             dataBlock = list(self.data[minIndex: maxIndex])
             if len(dataBlock) < messageLength:
-                dataBlock.extend([chr(Constants.Byte00)] *
+                dataBlock.extend([chr(constants.Byte00)] *
                                  (messageLength - len(dataBlock)))
             dbTemp = ""
             for c in dataBlock:
@@ -646,7 +542,7 @@ class Sector:
             self.dataRowCount)
 
         self.eccRows = [eccMagicRow]
-        bytesPerRow = self.width * self.colorDepth / Constants.ByteSize
+        bytesPerRow = self.width * self.colorDepth / constants.ByteSize
         for row in range(self.eccRowCount):
             insertData = eccData[row * bytesPerRow: (row + 1) * bytesPerRow]
             insertRow = DotRow()
@@ -655,7 +551,7 @@ class Sector:
 
         self.eccData = eccData
 
-    # For ECC swapping in CS file, to distribute across pages
+    # TODO: For ECC swapping in CS file, to distribute across pages
     def getECCbit(self, i):
         pass
 
@@ -681,13 +577,12 @@ class Metadata:
     revisionVersion = "REV"
     totalPages = "TOT"
 
-    # TODO: Tuples?
     # Required, in order
-    RequiredInOrder = [eccMode, dataMode, pageNumber, metadataCount]
+    RequiredInOrder = (eccMode, dataMode, pageNumber, metadataCount)
 
     # Required, in no order
     # TODO: Some of these should possibly be required on each page
-    RequiredNoOrder = [
+    RequiredNoOrder = (
         ambiguous,
         crc32CCheck,
         eccRate,
@@ -698,7 +593,7 @@ class Metadata:
         csCreationTime,
         totalPages,
         fileExtension,
-        filename]
+        filename)
 
     # TODO: Filename/ext not required, how to track?
 
@@ -726,13 +621,13 @@ class MetadataSector(Sector):
     # TODO: This only supports values less than 256. It XOR's inelegantly. Fix
     # it, add non-xor method to DotByte?
     def getMetadataSchemeBytes(self):
-        ret = [self.MetadataDefaultScheme ^ Constants.Byte55] * self.colorDepth
-        ret += [Constants.Byte55] * self.colorDepth * \
+        ret = [self.MetadataDefaultScheme ^ constants.Byte55] * self.colorDepth
+        ret += [constants.Byte55] * self.colorDepth * \
             (self.MetadataSchemeBytes - 1)
         return ret
 
     def getColorDepthBytes(self):
-        return [self.colorDepth ^ Constants.Byte55] * self.colorDepth
+        return [self.colorDepth ^ constants.Byte55] * self.colorDepth
 
     def putMetadata(self, metadata):
         self.metadata = dict()
@@ -743,20 +638,20 @@ class MetadataSector(Sector):
         # Multiply each by self.colorDepth to make these effectively black and white
         # TODO: Header 11110000/00001111 instead of 11111111 - less likely to
         # collide/smudge first/last bit.
-        self.data.extend([Constants.ByteAA] *
+        self.data.extend([constants.ByteAA] *
                          self.MetadataInitPaddingBytes *
                          self.colorDepth)
         self.data.extend(self.getColorDepthBytes())
         self.data.extend(self.getMetadataSchemeBytes())
-        self.data.extend([Constants.ByteAA] *
+        self.data.extend([constants.ByteAA] *
                          self.MetadataEndPaddingBytes *
                          self.colorDepth)
 
         # Format metadata, interleave lists and 0-byte join
         # TODO: Encode ints not in ascii
         for (key, value) in metadata.items():
-            kvString = str(key) + chr(Constants.Byte00) + \
-                (str(value) if value else "") + chr(Constants.Byte00)
+            kvString = str(key) + chr(constants.Byte00) + \
+                (str(value) if value else "") + chr(constants.Byte00)
 
             # TODO: Get from static method?
             maxDataPerSector = Sector.getDataRowCount(
@@ -768,7 +663,7 @@ class MetadataSector(Sector):
         return self.metadata
 
     def getMetadata(self):
-        """Decode all metadata from the encoded metadata string
+        """TODO: Decode all metadata from the encoded metadata string
         """
         pass
 
@@ -857,7 +752,7 @@ class Page:
             metadataSectorIndex += 1
 
     def getMetadataSectors(self):
-        """Get all metadata sectors in this page, using method from the spec: random-reproducible
+        """TODO: Get all metadata sectors in this page, using method from the spec: random-reproducible
         """
         pass
 
@@ -873,14 +768,13 @@ class Page:
                 dataSectorIndex += 1
 
     def getDataSectors(self):
-        """Get all data sectors in this page - all non-metadata sectors
+        """TODO: Get all data sectors in this page - all non-metadata sectors
         """
         pass
 
-# The ColorSafe data and borders, all dimensions in dots.
-
 
 class ColorSafeFile:
+    """The ColorSafe data and borders, all dimensions in dots."""
 
     def encode(self,
                data,
@@ -917,7 +811,7 @@ class ColorSafeFile:
         self.sectorsToPages(self.dataSectors, self.metadataSectors)
 
     def decode(self, pages):
-        """Take a list of channels, format into sectors, then set a list of pages into this object
+        """TODO: Take a list of channels, format into sectors, then set a list of pages into this object
 
         0. Preprocess
             1. Find potential location of metadata sectors based on sector count
@@ -940,7 +834,7 @@ class ColorSafeFile:
         self.dataSectors = list()
 
         self.dataPerSector = self.sectorWidth * self.colorDepth * \
-            self.dataRowCount / Constants.ByteSize
+            self.dataRowCount / constants.ByteSize
 
         for dataStart in range(0, len(self.data), self.dataPerSector):
             # TODO: Setting data into Sector in place (using Sector's dataStart
@@ -975,22 +869,22 @@ class ColorSafeFile:
 
         self.metadata[Metadata.crc32CCheck] = crc32CCheck
         self.metadata[Metadata.csCreationTime] = csCreationTime
-        self.metadata[Metadata.dataMode] = Constants.DataMode
-        self.metadata[Metadata.eccMode] = Constants.ECCMode
+        self.metadata[Metadata.dataMode] = constants.DataMode
+        self.metadata[Metadata.eccMode] = constants.ECCMode
         self.metadata[Metadata.eccRate] = self.eccRate
         self.metadata[Metadata.fileExtension] = self.fileExtension
         self.metadata[Metadata.fileSize] = fileSize
         self.metadata[Metadata.filename] = self.filename
-        self.metadata[Metadata.majorVersion] = Constants.MajorVersion
-        self.metadata[Metadata.minorVersion] = Constants.MinorVersion
-        self.metadata[Metadata.revisionVersion] = Constants.RevisionVersion
+        self.metadata[Metadata.majorVersion] = constants.MajorVersion
+        self.metadata[Metadata.minorVersion] = constants.MinorVersion
+        self.metadata[Metadata.revisionVersion] = constants.RevisionVersion
 
         # This should not cause extra 0's in value; it will be updated with
         # correct values before writing
         self.metadata[Metadata.pageNumber] = chr(
-            0) * Constants.TotalPagesMaxBytes
+            0) * constants.TotalPagesMaxBytes
         self.metadata[Metadata.totalPages] = chr(
-            0) * Constants.TotalPagesMaxBytes
+            0) * constants.TotalPagesMaxBytes
 
         # Set to maximum possible. This will be updated with correct values
         # before writing.
@@ -1006,7 +900,7 @@ class ColorSafeFile:
         metadataRequiredNoOrder = [
             key for (key, value) in metadataRequiredNoOrder]
 
-        metadataInsertOrdered = Metadata.RequiredInOrder + metadataRequiredNoOrder
+        metadataInsertOrdered = list(Metadata.RequiredInOrder) + metadataRequiredNoOrder
 
         metadataRemaining = metadataInsertOrdered
         while metadataRemaining != Metadata.RequiredInOrder:
@@ -1081,7 +975,7 @@ class ColorSafeFile:
         self.metadataPositions = metadataPositions
 
     def metadataSectorsToMetadata(self):
-        """Take a list of metadataSectors, get their metadata, and combine them into a single Metadata object
+        """TODO: Take a list of metadataSectors, get their metadata, and combine them into a single Metadata object
         """
         pass
 
@@ -1129,25 +1023,25 @@ class ColorSafeFile:
         return self.pages
 
     def pagesToMetadataSectors(self, pages):
-        """Take a list of pages and return a list of all metadataSectors.
+        """TODO: Take a list of pages and return a list of all metadataSectors.
         Get the random-reproducible inserted order of metadata, add each into a list in order.
         """
         pass
 
     def pagesToDataSectors(self, pages):
-        """Take a list of pages and return the positions of dataSectors and metadataSectors.
+        """TODO: Take a list of pages and return the positions of dataSectors and metadataSectors.
         Place all sectors that aren't metadata sequentially into a list
         """
         pass
 
     def shuffleECCData(self):
-        """Take a list of pages, and shuffle the ECC data in each sector according to the spec - random-reproducible.
+        """TODO: Take a list of pages, and shuffle the ECC data in each sector according to the spec - random-reproducible.
         Return pages with shuffled ECC data.
         """
         pass
 
     def deshuffleECCData(self):
-        """Take a list of pages, and de-shuffle the ECC data in each sector according to the spec - random-reproducible.
+        """TODO: Take a list of pages, and de-shuffle the ECC data in each sector according to the spec - random-reproducible.
         This will return a list of pages with the original ECC data positions.
         """
         pass
@@ -1156,8 +1050,7 @@ class ColorSafeFile:
 class ColorSafeImageFiles:
     """A collection of saved ColorSafeFile objects, as images of working regions without outside borders or headers
     """
-    # TODO: Black and white constants in ColorChannels
-    BorderColor = (0, 0, 0)
+    BorderColor = constants.ColorBlack
 
     def encode(self,
                data,
@@ -1176,7 +1069,7 @@ class ColorSafeImageFiles:
         """Convert ColorSafeFile into a list of formatted images, with borders and gaps, and scaled properly.
         """
 
-        if not colorDepth or colorDepth < 0 or colorDepth > Constants.ColorDepthMax:
+        if not colorDepth or colorDepth < 0 or colorDepth > constants.ColorDepthMax:
             colorDepth = Defaults.colorDepth
 
         if dotFillPixels < 0:
@@ -1255,7 +1148,7 @@ class ColorSafeImageFiles:
         Pages channels is a list (size totalPages) of lists (size workingHeight) of rows (list size workingWidth) of
         channels.
         """
-        if not colorDepth or colorDepth < 0 or colorDepth > Constants.ColorDepthMax:
+        if not colorDepth or colorDepth < 0 or colorDepth > constants.ColorDepthMax:
             colorDepth = Defaults.colorDepth
 
         # Put each sector's data into a cleaned channelsList, 1 set of channels
@@ -1298,7 +1191,7 @@ class ColorSafeImageFiles:
                 widthPerDot = float(rightTemp - leftTemp + 1) / (sectorWidth + 2 * gapSize)
 
                 if widthPerDot < 1.0:  # Less than 1.0x resolution, cannot get all dots
-                    raise DecodingError
+                    raise exceptions.DecodingError
 
                 # Find real gaps, since small rotation across a large page may distort this.
                 # Look within one-dot unit of pixels away
@@ -1506,7 +1399,7 @@ class ColorSafeImageFiles:
                     maxVal = sum(maxVals) / len(maxVals)
 
                     if (minVal == maxVal):
-                        raise DecodingError
+                        raise exceptions.DecodingError
 
                     channels.subtractShade(minVal)
                     channels.multiplyShade([1.0 / (maxVal - minVal)])
@@ -1539,8 +1432,7 @@ class ColorSafeImageFiles:
 
                 s = Sector()
                 dataRows = Sector.getDataRowCount(sectorHeight, eccRate)
-                DefaultThresholdWeight = 0.5  # TODO: Move to Constants, or ColorChannels
-                thresholdWeight = float(shadeMinima) / BucketNum - DefaultThresholdWeight
+                thresholdWeight = float(shadeMinima) / BucketNum - constants.DefaultThresholdWeight
                 s.decode(
                     channelsList,
                     colorDepth,
@@ -1586,7 +1478,7 @@ class ColorSafeImageFiles:
                         # More errors than can be corrected. Set damage to
                         # total number of blocks.
                         except RSCodecError:
-                            damage = dataRows * sectorWidth / Constants.ByteSize
+                            damage = dataRows * sectorWidth / constants.ByteSize
 
                     correctedData += correctedStr
 
@@ -1594,7 +1486,7 @@ class ColorSafeImageFiles:
                     eindex += ebs
 
                 sectorDamage.append(
-                    float(damage) / (dataRows * sectorWidth / Constants.ByteSize))
+                    float(damage) / (dataRows * sectorWidth / constants.ByteSize))
 
                 outData = correctedData
 
@@ -1619,7 +1511,7 @@ class ColorSafeImageFiles:
 
     def normalize(self, val, minVal, maxVal):
         if (maxVal == minVal):
-            raise DecodingError
+            raise exceptions.DecodingError
 
         return (val - minVal) / (maxVal - minVal)
 
@@ -1675,8 +1567,8 @@ class ColorSafeImageFiles:
         # Perpendicular to the axis specified by the vertical bool
         perpLength = page.width if vertical else page.height
 
-        maxSkew = max(int(Constants.MaxSkewPerc * perpLength),
-                      Constants.MaxSkew)
+        maxSkew = max(int(constants.MaxSkewPerc * perpLength),
+                      constants.MaxSkew)
 
         # For each angle, find the minimum shade in the first border
         minShade = 1.0
@@ -1795,7 +1687,7 @@ class ColorSafeImageFiles:
         Use whitespace after borders rather than searching for the data within each border, since the
         data may be empty or inconsistent. Borders are the most reliable unit of recognition.
         """
-        minLengthSector = 10  # TODO: Set to sectorWidth/sectorHeight
+        minLengthSector = max(Defaults.sectorWidth, Defaults.sectorHeight)
 
         lowBorderThreshold = 0.35
         highGapThreshold = 0.65
@@ -1897,7 +1789,7 @@ class ColorSafeImageFiles:
             for row in range(self.workingHeightPixels):
                 row = list()
                 for column in range(self.workingWidthPixels):
-                    row.append((255, 255, 255))
+                    row.append(constants.ColorWhite)
                 pixels.append(row)
 
             for si, sector in enumerate(page.sectors):
@@ -1916,7 +1808,7 @@ class ColorSafeImageFiles:
                 for ri, row in enumerate(sector.dataRows + sector.eccRows):
                     for dbi, dotByte in enumerate(row.dotBytes):
                         for di, dot in enumerate(dotByte.dots):
-                            x = startHor + Constants.ByteSize * dbi + di
+                            x = startHor + constants.ByteSize * dbi + di
                             y = startVer + ri
 
                             x *= self.scale
