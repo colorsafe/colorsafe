@@ -1,10 +1,10 @@
-#!/usr/bin/python
-
 from PIL import Image
-from colorsafe import ColorSafeImageFiles, Defaults
 from reportlab.pdfgen import canvas
 import mmap
 import os
+
+from colorsafe import defaults
+from colorsafe.encoder.csimages_encoder import ColorSafeImagesEncoder
 
 
 class ColorSafePdfFile:
@@ -32,17 +32,17 @@ class ColorSafePdfFile:
                  borderBottom=borderBottom,
                  borderLeft=borderLeft,
                  borderRight=borderRight,
-                 dotFillPixels=Defaults.dotFillPixels,
-                 pixelsPerDot=Defaults.pixelsPerDot,
-                 colorDepth=Defaults.colorDepth,
-                 eccRate=Defaults.eccRate,
-                 sectorHeight=Defaults.sectorHeight,
-                 sectorWidth=Defaults.sectorWidth,
-                 borderSize=Defaults.borderSize,
-                 gapSize=Defaults.gapSize,
-                 filename=Defaults.filename,
+                 dotFillPixels=defaults.dotFillPixels,
+                 pixelsPerDot=defaults.pixelsPerDot,
+                 colorDepth=defaults.colorDepth,
+                 eccRate=defaults.eccRate,
+                 sectorHeight=defaults.sectorHeight,
+                 sectorWidth=defaults.sectorWidth,
+                 borderSize=defaults.borderSize,
+                 gapSize=defaults.gapSize,
+                 filename=defaults.filename,
                  printerDpi=printerDpi,
-                 fileExtension=Defaults.fileExtension,
+                 fileExtension=defaults.fileExtension,
                  outPath="",
                  saveImages=False,
                  noPdf=False):
@@ -62,20 +62,19 @@ class ColorSafePdfFile:
 
         # TODO: Get images ver/hor border adds, based on unused pixels leftover
         # from sector divide, for centering
-        csImages = ColorSafeImageFiles()
-        csImages.encode(data,
-                        self.fullWorkingHeightPixels,
-                        self.fullWorkingWidthPixels,
-                        dotFillPixels,
-                        pixelsPerDot,
-                        colorDepth,
-                        eccRate,
-                        sectorHeight,
-                        sectorWidth,
-                        borderSize,
-                        gapSize,
-                        filename,
-                        fileExtension)
+        csImages = ColorSafeImagesEncoder(data,
+                                          self.fullWorkingHeightPixels,
+                                          self.fullWorkingWidthPixels,
+                                          dotFillPixels,
+                                          pixelsPerDot,
+                                          colorDepth,
+                                          eccRate,
+                                          sectorHeight,
+                                          sectorWidth,
+                                          borderSize,
+                                          gapSize,
+                                          filename,
+                                          fileExtension)
 
         print "Max data per page:", str(csImages.csFile.maxData / 1000), "kB"
 

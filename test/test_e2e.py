@@ -1,9 +1,11 @@
 from PIL import Image
-from colorsafe import ColorSafeEncoder, ColorSafeDecoder
 import glob
 import os
 import pytest
 import random
+
+from colorsafe.decoder.csdecoder_manager import ColorSafeDecoder
+from colorsafe.encoder.csencoder_manager import ColorSafeEncoder
 
 in_file_name = "text.txt"
 out_file_name = "out.txt"

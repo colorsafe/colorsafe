@@ -1,2 +1,2 @@
-from csdecoder import ColorSafeDecoder
-from csencoder import ColorSafeEncoder
+from decoder import ColorSafeDecoder
+from encoder import ColorSafeEncoder

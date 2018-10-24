@@ -1,8 +1,20 @@
-from colorsafe import ColorSafeImageFiles, InputPages
 from PIL import Image
 import re
 
+from colorsafe.decoder.csimages_decoder import ColorSafeImagesDecoder
+
 MaxColorVal = 255
+
+
+class InputPages:
+    def __init__(self, totalPages, height, width):
+        self.totalPages = totalPages
+        self.height = height
+        self.width = width
+
+    def getPagePixel(self, page, y, x):
+        """For caller to implement"""
+        pass
 
 
 def sortStringsNumerically(l):
@@ -78,17 +90,16 @@ class ColorSafeDecoder:
         pages.pagePixels = self.pagePixels
         pages.getPagePixel = getPagePixel.__get__(pages, pages.__class__)
 
-        csFile = ColorSafeImageFiles()
-        data, metadata = csFile.decode(pages, colorDepth)
+        csFile = ColorSafeImagesDecoder(pages, colorDepth)
 
         print "Decoded %d bytes with %.2f%% average damage" % (
-            len(data), 100 * csFile.sectorDamageAvg)
+            len(csFile.dataStr), 100 * csFile.sectorDamageAvg)
 
         f = open(outfile, "w")
-        f.write(data)
+        f.write(csFile.dataStr)
         f.close()
 
         if saveMetadata:
             f = open("metadata.txt", "w")
-            f.write(metadata)
+            f.write(csFile.metadataStr)
             f.close()

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
-from csdecoder import ColorSafeDecoder
-from csencoder import ColorSafeEncoder
+from decoder.csdecoder_manager import ColorSafeDecoder
+from encoder.csencoder_manager import ColorSafeEncoder
 import argparse
 import constants
 
