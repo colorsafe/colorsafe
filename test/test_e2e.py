@@ -58,15 +58,16 @@ image_alterations = {"none": lambda tmpdir: out_image_name_wildcard,
                      }
 
 # Params:  Colors, Height, Width, DFP, PPD, DPI, Text index
-params = [(1, 11, 8.5, 1, 1, 100, "lorem", "none"),  # Standard case
-          (1, 3, 3, 1, 1, 100, "lorem", "none"),  # Smaller page
-          (1, 3, 3, 1, 2, 100, "lorem", "none"),  # 2 Pixels-per-dot
-          (1, 3, 3, 1, 1, 150, "lorem", "none"),  # 150 DPI
-          (2, 3, 3, 1, 1, 100, "lorem", "none"),  # color-depth = 2
-          (3, 3, 3, 1, 1, 100, "lorem", "none"),  # color-depth = 3
-          (1, 3, 3, 1, 1, 100, "random", "none"),  # Random string, TODO: This test is flaky
-          # (1, 3, 3, 4, 4, 100, "lorem", "rotate0.1"),  # Rotated by 1 degree, TODO: Fix this test
-          ]
+params = [
+    (1, 11, 8.5, 1, 1, 100, "lorem", "none"),  # Standard case
+    (1, 3, 3, 1, 1, 100, "lorem", "none"),  # Smaller page
+    (1, 3, 3, 1, 2, 100, "lorem", "none"),  # 2 Pixels-per-dot
+    (1, 3, 3, 1, 1, 150, "lorem", "none"),  # 150 DPI
+    (2, 3, 3, 1, 1, 100, "lorem", "none"),  # color-depth = 2
+    (3, 3, 3, 1, 1, 100, "lorem", "none"),  # color-depth = 3
+    (1, 3, 3, 1, 1, 100, "random", "none"),  # Random string, TODO: This test is flaky
+    # (1, 3, 3, 4, 4, 100, "lorem", "rotate0.1"),  # Rotated by 1 degree, TODO: Fix this test
+]
 
 
 @pytest.mark.parametrize(

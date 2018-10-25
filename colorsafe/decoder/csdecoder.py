@@ -3,6 +3,28 @@ from colorsafe.csdatastructures import Dot
 from colorsafe.utils import floatToBinaryList, intToBinaryList
 
 
+class InputPages:
+    def __init__(self, totalPages, height, width):
+        self.totalPages = totalPages
+        self.height = height
+        self.width = width
+
+    def getPagePixel(self, page, y, x):
+        """For caller to implement"""
+        pass
+
+
+class InputPage:
+    def __init__(self, pages, pageNum):
+        self.pages = pages
+        self.height = pages.height
+        self.width = pages.width
+        self.pageNum = pageNum
+
+    def getPixel(self, y, x):
+        return self.pages.getPagePixel(self.pageNum, y, x)
+
+
 class DotDecoder(Dot):
     """A group of channels representing a group of colorDepth bits.
 

@@ -1,20 +1,10 @@
 from PIL import Image
 import re
 
+from colorsafe.decoder.csdecoder import InputPages
 from colorsafe.decoder.csimages_decoder import ColorSafeImagesDecoder
 
 MaxColorVal = 255
-
-
-class InputPages:
-    def __init__(self, totalPages, height, width):
-        self.totalPages = totalPages
-        self.height = height
-        self.width = width
-
-    def getPagePixel(self, page, y, x):
-        """For caller to implement"""
-        pass
 
 
 def sortStringsNumerically(l):
@@ -43,7 +33,6 @@ def getPageGrayPixel(pageNum, y, x, pagePixels, grayscale=True):
 
 class ColorSafeDecoder:
     def __init__(self, filenames, colorDepth, outfile, saveMetadata):
-        #channelsPageList = list()
         self.pagePixels = list()
 
         for filename in sortStringsNumerically(filenames):
@@ -55,27 +44,6 @@ class ColorSafeDecoder:
 
             pixels = image.load()
             self.pagePixels.append(pixels)
-
-            #width = image.size[0]
-            #height = image.size[1]
-
-            # Remove alpha channel, combine into an appropriate channels list.
-            #channelsList = list()
-            # for y in range(height):
-            #    channelsRow = list()
-            #    for x in range(width):
-            #        pixel = pixels[x,y]
-
-            #        try:
-            #            channels = ColorChannels(pixel[0], pixel[1], pixel[2])
-            #        except TypeError: # Grayscale
-            #            channels = ColorChannels(pixel, pixel, pixel)
-
-            #        channels.multiplyShade([1.0 / MaxColorVal])
-            #        channelsRow.append(channels)
-            #    channelsList.append(channelsRow)
-
-            # channelsPageList.append(channelsList)
 
         try:
             len(self.pagePixels[0][0, 0])  # Will be an int, not a list if image is grayscale
