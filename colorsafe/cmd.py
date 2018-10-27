@@ -29,7 +29,7 @@ def decode(args):
         args.filenames,
         args.colorDepth,
         args.outfile,
-        args.saveMetadata)
+        args.metadataFile)
 
 
 def main():
@@ -86,8 +86,8 @@ def main():
                                 help='Color depth')
     decoder_parser.add_argument('--outfile', type=str, default="outfile.txt",
                                 help='Output filename of data file')
-    decoder_parser.add_argument('--saveMetadata', action='store_true', default=False,
-                                help='If specified, will save metadata')
+    decoder_parser.add_argument('--metadataFile', type=str, default="",
+                                help='Metadata filename')
 
     decoder_parser.set_defaults(func=decode)
 

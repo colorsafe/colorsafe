@@ -1,7 +1,10 @@
+import os
+
 from unireedsolomon import RSCoder, RSCodecError
 
 from colorsafe import constants, defaults, exceptions, utils
 from colorsafe.csdatastructures import ColorSafeImages, ColorChannels, Sector, DotRow
+from colorsafe.debugutils import drawPage
 from colorsafe.decoder.csdecoder import SectorDecoder, InputPage
 
 
@@ -9,7 +12,7 @@ class ColorSafeImagesDecoder(ColorSafeImages):
     """A collection of saved ColorSafeFile objects, as images of working regions without outside borders or headers
     """
 
-    def __init__(self, pages, colorDepth):
+    def __init__(self, pages, colorDepth, tmpdir = None):
         """Convert a list of pages channels into a list of sector channels, create decoded sectors, return data.
         Remove borders and gaps, scale down.
 
@@ -27,14 +30,47 @@ class ColorSafeImagesDecoder(ColorSafeImages):
         for pageNum in range(pages.totalPages):
             page = InputPage(pages, pageNum)
 
+            # TODO: Use angles, not skew, for a more granular accuracy.
+
             # Get skews
             verticalSkew = self.findSkew(page, True)
             horizontalSkew = self.findSkew(page, False)
 
-            verticalBounds = self.findSkewBounds(page, verticalSkew, True)
-            horizontalBounds = self.findSkewBounds(page, horizontalSkew, False)
+            # Vertical bounds are more accurate since the data will extend to the horizontal end of the page.
+            # Retrieve them first and use them to clip the horizontal bound region to not check an empty page bottom.
+            # TODO: Clip at the outer bounds of the image, for best accuracy. Scan could have whitespace to either side.
+            verticalChannelShadeAvg = self.getChannelShadeAvg(page, verticalSkew, True)
+            verticalBounds = self.findBounds(verticalChannelShadeAvg)
+
+            if not len(verticalBounds):
+                raise exceptions.DecodingError("No vertical bounds detected.")
+
+            # TODO: Get the real bottom of the image. Currently this is simply the lowest inner sector bound.
+            verticalEnd = verticalBounds[-1][-1]
+
+            horizontalChannelShadeAvg = self.getChannelShadeAvg(page, horizontalSkew, False, verticalEnd)
+            horizontalBounds = self.findBounds(horizontalChannelShadeAvg)
+
+            if not len(horizontalBounds):
+                raise exceptions.DecodingError("No horizontal bounds detected")
+
+            if (tmpdir):
+                f = open(os.path.join(tmpdir, "skewAndBounds.txt"), "w")
+                f.write("verticalSkew " + str(verticalSkew))
+                f.write("\rhorizontalSkew " + str(horizontalSkew))
+                f.write("\rverticalBounds " + str(verticalBounds))
+                f.write("\rhorizontalBounds " + str(horizontalBounds))
+                f.write("\rverticalChannelShadeAvg " + str(verticalChannelShadeAvg))
+                f.write("\rhorizontalChannelShadeAvg " + str(horizontalChannelShadeAvg))
+                f.close()
 
             bounds = self.getSkewSectorBounds(verticalBounds, horizontalBounds, verticalSkew, horizontalSkew)
+
+            if (tmpdir):
+                converted_bounds = list()
+                for y1, y2, x1, x2 in bounds:
+                    converted_bounds.extend([(y1, x1), (y1, x2), (y2, x1), (y2, x2)])
+                drawPage(page, tmpdir, "bounds", tuple(converted_bounds), None, (255, 0, 0))
 
             # TODO: Calculate dynamically
             # TODO: Override by command-line argument
@@ -44,6 +80,9 @@ class ColorSafeImagesDecoder(ColorSafeImages):
             eccRate = defaults.eccRate
 
             sectorNum = -1
+
+            if (tmpdir):
+                debug_dots = list()
 
             # For each sector, beginning and ending at its gaps
             sectorDamage = list()
@@ -59,38 +98,48 @@ class ColorSafeImagesDecoder(ColorSafeImages):
                 if widthPerDot < 1.0:  # Less than 1.0x resolution, cannot get all dots
                     raise exceptions.DecodingError
 
-                top, bottom, left, right = ColorSafeImagesDecoder.getRealGaps(page,
-                                                                              heightPerDot,
-                                                                              widthPerDot,
-                                                                              topTemp,
-                                                                              bottomTemp,
-                                                                              leftTemp,
-                                                                              rightTemp)
+                top, bottom, left, right = self.getRealGaps(page,
+                                                            heightPerDot,
+                                                            widthPerDot,
+                                                            topTemp,
+                                                            bottomTemp,
+                                                            leftTemp,
+                                                            rightTemp)
 
-                rowsBoundaryChanges = ColorSafeImagesDecoder.getBoundaryChanges(page, left, right, top, bottom)
-                columnsBoundaryChanges = ColorSafeImagesDecoder.getBoundaryChanges(page, top, bottom, left, right,
-                                                                                   False)
+                rowsBoundaryChanges = self.getBoundaryChanges(page, left, right, top, bottom)
+                columnsBoundaryChanges = self.getBoundaryChanges(page, top, bottom, left, right, False)
 
-                rowDotStartLocations = ColorSafeImagesDecoder.dotStartLocations(widthPerDot,
-                                                                                rowsBoundaryChanges,
-                                                                                sectorWidth)
-                columnDotStartLocations = ColorSafeImagesDecoder.dotStartLocations(widthPerDot,
-                                                                                   columnsBoundaryChanges,
-                                                                                   sectorHeight)
+                rowDotStartLocations = self.dotStartLocations(widthPerDot,
+                                                              rowsBoundaryChanges,
+                                                              sectorWidth)
+                columnDotStartLocations = self.dotStartLocations(widthPerDot,
+                                                                 columnsBoundaryChanges,
+                                                                 sectorHeight)
+
+                if (tmpdir):
+                    for x in rowDotStartLocations:
+                        for y in columnDotStartLocations:
+                            debug_dots.append((top + x, left + y))
 
                 # TODO: Calculate dynamically
                 bucketNum = 40
 
-                channelsList = ColorSafeImagesDecoder.getChannelsList(page,
-                                                                      columnDotStartLocations,
-                                                                      rowDotStartLocations,
-                                                                      top,
-                                                                      left,
-                                                                      sectorHeight,
-                                                                      sectorWidth)
-                channelsList = ColorSafeImagesDecoder.normalizeChannelsList(channelsList)
+                channelsList = self.getChannelsList(page,
+                                                    columnDotStartLocations,
+                                                    rowDotStartLocations,
+                                                    top,
+                                                    left,
+                                                    sectorHeight,
+                                                    sectorWidth)
+                channelsList = self.normalizeChannelsList(channelsList)
 
-                thresholdWeight = ColorSafeImagesDecoder.getThresholdWeight(channelsList, bucketNum)
+                if (tmpdir):
+                    f = open(os.path.join(tmpdir, "normalizedChannels" + str(sectorNum) + ".txt"), "w")
+                    for i in channelsList:
+                        f.write(str(i.getChannels()) + "\r")
+                    f.close()
+
+                thresholdWeight = self.getThresholdWeight(channelsList, bucketNum)
 
                 dataRows = Sector.getDataRowCount(sectorHeight, eccRate)
 
@@ -103,7 +152,14 @@ class ColorSafeImagesDecoder(ColorSafeImages):
                     eccRate,
                     thresholdWeight)
 
-                outData, damage = ColorSafeImagesDecoder.getCorrectedData(s, dataRows, sectorWidth)
+                outData, damage = self.getCorrectedData(s, dataRows, sectorWidth)
+
+                if (tmpdir):
+                    f = open(os.path.join(tmpdir, "outDataNewLineDelimited" + str(sectorNum) + ".txt"), "w")
+                    for i in outData:
+                        f.write(str(i) + " " + str(utils.intToBinaryList(ord(i), 8)) + "\n")
+                    f.close()
+
                 sectorDamage.append(damage)
 
                 # Add data to output if sector is not metadata
@@ -113,6 +169,9 @@ class ColorSafeImagesDecoder(ColorSafeImages):
                 else:
                     # TODO: Use ColorSafeFileDecoder to organize and parse this
                     metadataStr += str(sectorNum) + "\n" + outData + "\n\n"
+
+        if tmpdir:
+            drawPage(page, tmpdir, "dots", tuple(debug_dots), None, (255, 0, 0))
 
         if len(sectorDamage):
             self.sectorDamageAvg = sum(sectorDamage) / len(sectorDamage)
@@ -164,7 +223,6 @@ class ColorSafeImagesDecoder(ColorSafeImages):
             if perpShadeSum > gapThreshold:
                 return along
 
-
     @staticmethod
     def findSkew(page, vertical=True, reverse=False):
         """Find the a grid image's skew, based on the vertical (or horizontal) boolean
@@ -175,6 +233,9 @@ class ColorSafeImagesDecoder(ColorSafeImages):
         # TODO: Binary search through perp to find first boundary. This will improve speed.
         # TODO: Search for two or more skew lines to improve accuracy? Scale
         # isn't known yet, so this is tricky
+
+        DEFAULT_BEST_SKEW = 0
+        MAX_SHADE_VARIANCE = 0.1
 
         dataDensity = 0.5
         alongStep = 10  # TODO: Refine this
@@ -192,7 +253,7 @@ class ColorSafeImagesDecoder(ColorSafeImages):
         # For each angle, find the minimum shade in the first border
         minShade = 1.0
         minShadeIter = perpLength if not reverse else 0
-        bestSkew = 0
+        bestSkewShadeList = []
         for skew in range(-maxSkew, maxSkew + 1):
             slope = float(skew) / alongLength
 
@@ -232,16 +293,30 @@ class ColorSafeImagesDecoder(ColorSafeImages):
                     continue
 
                 # TODO: Normalize
+                # Add all skews and shades to a list if they're smaller than the smallest shade (plus some variance)
                 avgShade = sum(skewLine) / len(skewLine)
-                if avgShade < minShade and avgShade < dataDensity:
+                if avgShade < minShade * (1 + MAX_SHADE_VARIANCE) and avgShade < dataDensity:
                     minShade = avgShade
-                    bestSkew = skew
+                    bestSkewShadeList.append((skew, minShade))
                     minShadeIter = perpIter
 
+        # The bestSkewShadeList will have many shades/skews not near the bottom, since above we started from 1.0 and
+        # included all smaller shades along the way. We did that to reduce the list size here, where we take the average
+        # of shades within the variance of the global minimum.
+        globalMinShade = 1.0
+        for skew, minShade in bestSkewShadeList:
+            globalMinShade = min(globalMinShade, minShade)
+
+        bestSkews = []
+        for skew, minShade in bestSkewShadeList:
+            if minShade < globalMinShade * (1 + MAX_SHADE_VARIANCE):
+                bestSkews.append(skew)
+
+        bestSkew = utils.average(bestSkews) if len(bestSkews) else DEFAULT_BEST_SKEW
         return bestSkew
 
     @staticmethod
-    def findSkewBounds(page, skew, vertical=True):
+    def getChannelShadeAvg(page, skew, vertical=True, perpEnd = None):
         """Get bounds including skew
         """
         perpStep = 3  # TODO: Refine this
@@ -250,8 +325,9 @@ class ColorSafeImagesDecoder(ColorSafeImages):
         # perpendicular to it, row (or column)
         # Along the axis specified by the vertical bool
         alongLength = page.height if vertical else page.width
-        # Perpendicular, e.g. in the direction of the bounds
-        perpLength = page.width if vertical else page.height
+        # Perpendicular, e.g. in the direction of the bounds. PerpEnd can replace this is supplied.
+        perpLength = perpEnd if perpEnd else (page.width if vertical else page.height)
+
         slope = float(skew) / perpLength
 
         # Get all skew line shade sums
@@ -260,13 +336,17 @@ class ColorSafeImagesDecoder(ColorSafeImages):
             alongShadeSum = 0
 
             # Sum all shades along the skew line
+            perpLengthIterated = 0
             for perpIter in range(0, perpLength, perpStep):
                 perpValue = int(round(perpIter * slope)) + alongIter
 
+                # If coordinates are out of bounds of the image, use white pixels
                 if perpValue < 0 or perpValue >= alongLength:
-                    alongShadeSum = 1.0 * perpLength  # White border
-                    skewLine = list()
-                    break
+                    # TODO: Make all white, or else start at perp values that will all be contained in the image
+                    # alongShadeSum = 1.0 * perpLength / perpStep  # White border
+
+                    alongShadeSum += 1.0
+                    continue
 
                 y = perpValue if vertical else perpIter
                 x = perpIter if vertical else perpValue
@@ -276,9 +356,7 @@ class ColorSafeImagesDecoder(ColorSafeImages):
 
             channelShadeAvg.append(alongShadeSum * perpStep / perpLength)
 
-        bounds = ColorSafeImagesDecoder.findBounds(channelShadeAvg)
-
-        return bounds
+        return channelShadeAvg
 
     @staticmethod
     def getSkewSectorBounds(
@@ -330,6 +408,8 @@ class ColorSafeImagesDecoder(ColorSafeImages):
                 break
 
         lTruncated = l[borderBeginning:borderEnding + 1]
+
+        # TODO: Use top/bottom 10th percentiles to threshold, for better accuracy
         minVal = min(lTruncated)
         maxVal = max(lTruncated)
 

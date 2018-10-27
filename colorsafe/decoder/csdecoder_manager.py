@@ -32,7 +32,7 @@ def getPageGrayPixel(pageNum, y, x, pagePixels, grayscale=True):
 
 
 class ColorSafeDecoder:
-    def __init__(self, filenames, colorDepth, outfile, saveMetadata):
+    def __init__(self, filenames, colorDepth, outfile, metadataFile, tmpdir = None):
         self.pagePixels = list()
 
         for filename in sortStringsNumerically(filenames):
@@ -58,7 +58,7 @@ class ColorSafeDecoder:
         pages.pagePixels = self.pagePixels
         pages.getPagePixel = getPagePixel.__get__(pages, pages.__class__)
 
-        csFile = ColorSafeImagesDecoder(pages, colorDepth)
+        csFile = ColorSafeImagesDecoder(pages, colorDepth, tmpdir)
 
         print "Decoded %d bytes with %.2f%% average damage" % (
             len(csFile.dataStr), 100 * csFile.sectorDamageAvg)
@@ -67,7 +67,7 @@ class ColorSafeDecoder:
         f.write(csFile.dataStr)
         f.close()
 
-        if saveMetadata:
-            f = open("metadata.txt", "w")
+        if metadataFile and len(metadataFile):
+            f = open(metadataFile, "w")
             f.write(csFile.metadataStr)
             f.close()

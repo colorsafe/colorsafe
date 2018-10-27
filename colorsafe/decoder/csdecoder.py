@@ -1,4 +1,4 @@
-from colorsafe.csdatastructures import constants, DotByte, DotRow, Sector, Page, ColorSafeFile, MetadataSector
+from colorsafe.csdatastructures import constants, DotByte, DotRow, Sector, Page, ColorSafeFile, MetadataSector, ColorChannels
 from colorsafe.csdatastructures import Dot
 from colorsafe.utils import floatToBinaryList, intToBinaryList
 
@@ -29,6 +29,8 @@ class DotDecoder(Dot):
     """A group of channels representing a group of colorDepth bits.
 
     There are three modes of encoding a color into a dot: shade, primary, and secondary.
+
+    TODO: Extend to multiple shades
     """
 
     def __init__(self, channels, colorDepth, thresholdWeight=0.0):
@@ -64,12 +66,14 @@ class DotDecoder(Dot):
 
     def decodeShadeMode(self, channels, colorDepth, thresholdWeight):
         val = channels.getAverageShade()
-        val = max(0.0, val - thresholdWeight)
-        bitList = floatToBinaryList(val, colorDepth)
+
+        bitList = [int(val > thresholdWeight)]
+
+        # val = max(0.0, val - thresholdWeight)
+        # bitList = floatToBinaryList(val, colorDepth)
         return bitList
 
     def decodeSecondaryMode(self, channels, colorDepth):
-        vals = list()
         zeroPosition = 0
         shadeBits = colorDepth - 2
 
@@ -116,7 +120,7 @@ class DotByteDecoder(DotByte):
             bytesList.append(constants.Byte00)
 
         for i in range(constants.ByteSize):
-            # If channelsList has less than 8 channel, explicitly fail
+            # If channelsList has less than 8 channels, explicitly fail
             channel = channelsList[i]
 
             dot = DotDecoder(channel, colorDepth, thresholdWeight)
@@ -190,7 +194,6 @@ class SectorDecoder(Sector):
 
         for row in range(0, height * width, width):
             channels = channelsList[row: row + width]
-            dotRow = DotRow()
             rowNum = row / width
 
             dotRow = DotRowDecoder(channels, colorDepth, width, rowNum, thresholdWeight)

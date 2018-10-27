@@ -7,6 +7,7 @@ from unireedsolomon import RSCoder
 
 from colorsafe.csdatastructures import constants, ColorChannels, Dot, DotByte, DotRow, Sector, Page, ColorSafeFile, \
     Metadata, MetadataSector
+from colorsafe.exceptions import EncodingError
 from colorsafe.utils import binaryListToVal, binaryListToFloat
 
 
@@ -523,6 +524,9 @@ class ColorSafeFileEncoder(ColorSafeFile):
                 set(metadataInserted))
 
         self.sectorsPerPage = self.sectorsVertical * self.sectorsHorizontal
+
+        if self.sectorsPerPage <= 1:
+            raise EncodingError("Error: cannot encode 1 sector per page. Page height/width is possibly too small.")
 
         dsCount = len(self.dataSectors)
         msCount = len(self.metadataSectors)
