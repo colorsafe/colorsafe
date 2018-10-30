@@ -21,7 +21,8 @@ def encode(args):
         args.printerDpi,
         args.outPath,
         args.saveImages,
-        args.noPdf)
+        args.noPdf
+    )
 
 
 def decode(args):
@@ -29,7 +30,9 @@ def decode(args):
         args.filenames,
         args.colorDepth,
         args.outfile,
-        args.metadataFile)
+        args.metadataFile,
+        "." if args.debug else None  # Save in current directory if debug option is specified
+    )
 
 
 def main():
@@ -88,6 +91,8 @@ def main():
                                 help='Output filename of data file')
     decoder_parser.add_argument('--metadataFile', type=str, default="",
                                 help='Metadata filename')
+    decoder_parser.add_argument('--debug', action='store_true', default=False,
+                                help='Debug output')
 
     decoder_parser.set_defaults(func=decode)
 

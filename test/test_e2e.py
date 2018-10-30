@@ -1,123 +1,53 @@
-from PIL import Image, ImageFilter
 import glob
 import os
 import pytest
 import random
 
-from colorsafe.constants import MagicByte
-
-from colorsafe.exceptions import DecodingError, EncodingError
+from colorsafe.exceptions import EncodingError
 
 from colorsafe import utils
 from colorsafe.decoder.csdecoder_manager import ColorSafeDecoder
 from colorsafe.encoder.csencoder_manager import ColorSafeEncoder
+from test_utils import texts, in_file_name, image_alterations, out_file_name, metadata_file_name
 
-in_file_name = "text.txt"
-out_file_name = "out.txt"
-metadata_file_name = "metadata.txt"
-out_image_name_wildcard = "out_*.png"
-altered_image_name_wildcard = "altered_*.png"
-out_image_name_prefix = "out"
-altered_image_name_prefix = "altered"
-
-texts = {"lorem":
-         "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Phasellus sollicitudin tincidunt diam id gravida."
-         "Integer gravida risus quis purus bibendum volutpat. Fusce nec scelerisque ipsum. Curabitur nec augue ac"
-         "nulla aliquet gravida ut quis justo. Aliquam sagittis nec arcu consectetur fermentum. Duis consectetur"
-         "convallis pharetra. Nullam porttitor mi quis risus rhoncus malesuada nec vitae ex. Nunc non mattis justo."
-         "Sed pellentesque, nulla vitae sagittis pulvinar, massa dui pellentesque sapien, vel dignissim lorem nisi sit"
-         "amet augue. Nam rhoncus leo non urna sodales, vitae elementum magna viverra. Aliquam aliquam eu neque vel"
-         "dictum. Nulla fermentum placerat elit. Vivamus non augue congue, maximus sem non, mollis nulla. Donec non"
-         "elit purus.",
-         "magic_bytes": chr(MagicByte) * 1000}
-
-# TODO: Test a unicode string case
-# TODO: Parametrize all tests with multiple color-depths
-
-
-def rotate_image(tmpdir, angle):
-    filenames = glob.glob(
-        os.path.join(
-            str(tmpdir),
-            out_image_name_wildcard))
-
-    for filename in filenames:
-        try:
-            img = Image.open(filename)
-            img2 = img.convert('RGBA')
-
-            rot = img2.rotate(angle, expand=1)
-            rot2 = Image.new('RGBA', rot.size, (255,) * 4)
-
-            # create a composite image using the alpha layer of rot as a mask
-            out = Image.composite(rot, rot2, rot)
-
-            altered_file_name = filename.replace(out_image_name_prefix, altered_image_name_prefix)
-            out.convert(img.mode).save(altered_file_name)
-        except IOError:
-            print "ERROR: File {} is not a valid image file".format(filename)
-            return
-
-    return altered_image_name_wildcard
-
-
-def gaussian_blur_image(tmpdir, radius):
-    filenames = glob.glob(
-        os.path.join(
-            str(tmpdir),
-            out_image_name_wildcard))
-
-    for filename in filenames:
-        try:
-            img = Image.open(filename)
-            out = img.filter(ImageFilter.GaussianBlur(radius=radius))
-
-            altered_file_name = filename.replace(out_image_name_prefix, altered_image_name_prefix)
-            out.convert(img.mode).save(altered_file_name)
-        except IOError:
-            print "ERROR: File {} is not a valid image file".format(filename)
-            return
-
-    return altered_image_name_wildcard
-
-
-image_alterations = {"none": lambda tmpdir: out_image_name_wildcard,
-                     "rotate0.1": lambda tmpdir: rotate_image(tmpdir, 0.1),
-                     "gaussian_blur0.2": lambda tmpdir: gaussian_blur_image(tmpdir, 0.2)
-                     }
-
-
-params_random = {
-    ("random_data", 1, 3, 3, 1, 1, 100, "random", "none"),
-    ("random_data_2_ppd", 1, 3, 3, 2, 2, 100, "random", "none"),
-}
+COLOR_DEPTH_RANGE = range(1, 4)
+DEBUG = False
 
 RANDOM_TEST_TRIALS = 3
 
+params_random = {
+    ("random_data", "random", "none", 3, 3, 1, 1, 100),
+    ("random_data_2_ppd", "random", "none", 3, 3, 2, 2, 100),
+}
 
+
+# TODO: Fix for color depths 2 and 3
 @pytest.mark.parametrize('execution_number', range(RANDOM_TEST_TRIALS))
 @pytest.mark.parametrize(
+    "color_depth",
+    range(1, 2))
+@pytest.mark.parametrize(
     "test_name,"
-    "color_depth,"
+    "text_index,"
+    "image_alteration,"
     "page_height,"
     "page_width,"
     "dot_fill_pixels,"
     "pixels_per_dot,"
-    "printer_dpi,"
-    "text_index,"
-    "image_alteration",
+    "printer_dpi",
     params_random)
 def test_e2e_random(execution_number,
                     tmpdir,
                     test_name,
+                    text_index,
+                    image_alteration,
                     color_depth,
                     page_height,
                     page_width,
                     dot_fill_pixels,
                     pixels_per_dot,
-                    printer_dpi,
-                    text_index,
-                    image_alteration):
+                    printer_dpi
+                    ):
 
     # TODO: Test a random unicode string case
     def get_random_string():
@@ -126,52 +56,56 @@ def test_e2e_random(execution_number,
     texts['random'] = get_random_string()
     test_e2e(tmpdir,
              test_name,
+             text_index,
+             image_alteration,
              color_depth,
              page_height,
              page_width,
              dot_fill_pixels,
              pixels_per_dot,
-             printer_dpi,
-             text_index,
-             image_alteration)
+             printer_dpi
+             )
 
 
 # Params: Test Name, Colors, Height, Width, DFP, PPD, DPI, Text index
 params = [
-    ("standard", 1, 11, 8.5, 1, 1, 100, "lorem", "none"),
-    ("smaller_page", 1, 3, 3, 1, 1, 100, "lorem", "none"),
-    ("2_ppd_1_dfp", 1, 3, 3, 1, 2, 100, "lorem", "none"),
-    ("4_ppd_4_dfp", 1, 3, 3, 4, 4, 100, "lorem", "none"),
-    ("150_dpi", 1, 3, 3, 1, 1, 150, "lorem", "none"),
-    ("color_2", 2, 3, 3, 1, 1, 100, "lorem", "none"),
-    ("color_3", 3, 3, 3, 1, 1, 100, "lorem", "none"),
-    ("blur_2", 1, 3, 3, 1, 1, 100, "lorem", "gaussian_blur0.2"),
-    ("blur_2_dfp_2", 1, 3, 3, 2, 2, 100, "lorem", "gaussian_blur0.2"),
-    # ("rotate_0.1", 1, 3, 3, 4, 4, 100, "lorem", "rotate0.1"),  # TODO: Fix this test
+    ("standard", "lorem", "none", 11, 8.5, 1, 1, 100),
+    ("smaller_page", "lorem", "none", 3, 3, 1, 1, 100),
+    ("2_ppd_1_dfp", "lorem", "none", 3, 3, 1, 2, 100),
+    ("4_ppd_4_dfp", "lorem", "none", 3, 3, 4, 4, 100),
+    ("150_dpi", "lorem", "none", 3, 3, 1, 1, 150),
+    ("blur_2", "lorem", "gaussian_blur0.2", 3, 3, 1, 1, 100),
+    ("blur_2_dfp_2", "lorem", "gaussian_blur0.2", 3, 3, 2, 2, 100),
+    ("rotate_0.1", "lorem", "rotate0.1", 3, 3, 4, 4, 100),
+    ("shift_10", "lorem", "shift10", 3, 3, 1, 1, 100),  # TODO: Test more data rows here, e.g. a bigger string
+    # ("resize_2.1x", "lorem", "resize2.1x", 3, 3, 1, 1, 100), # TODO: Fix this, decoding needs bilinear interpolation
 ]
 
 
 @pytest.mark.parametrize(
+    "color_depth",
+    COLOR_DEPTH_RANGE)
+@pytest.mark.parametrize(
     "test_name,"
-    "color_depth,"
+    "text_index,"
+    "image_alteration,"
     "page_height,"
     "page_width,"
     "dot_fill_pixels,"
     "pixels_per_dot,"
-    "printer_dpi,"
-    "text_index,"
-    "image_alteration",
+    "printer_dpi",
     params)
 def test_e2e(tmpdir,
              test_name,
+             text_index,  # Use text index, not text, to avoid an extremely large PyTest test name
+             image_alteration,
              color_depth,
              page_height,
              page_width,
              dot_fill_pixels,
              pixels_per_dot,
-             printer_dpi,
-             text_index,
-             image_alteration):  # Use text index, not text, to avoid an extremely large PyTest test name
+             printer_dpi
+             ):
     """Encode a text file, then decode it and compare the contents to the original file.
 
     :param test_name Test name, to make it easier to associate pytest results with the test they belong to.
@@ -186,7 +120,7 @@ def test_e2e(tmpdir,
     in_data = texts[text_index]
     in_file.write(in_data)
 
-    if (tmpdir):
+    if DEBUG and tmpdir:
         f = open(os.path.join(str(tmpdir), "inDataNewLineDelimited.txt"), "w")
         for i in in_data:
             f.write(str(i) + " " + str(utils.intToBinaryList(ord(i), 8)) + "\n")
@@ -222,7 +156,7 @@ def test_e2e(tmpdir,
 
     assert altered_image_paths > 0
 
-    ColorSafeDecoder(altered_image_paths, color_depth, str(out_file), str(metadata_file), str(tmpdir))
+    ColorSafeDecoder(altered_image_paths, color_depth, str(out_file), str(metadata_file), str(tmpdir) if DEBUG else None)
 
     out_file_contents = out_file.read()
 
@@ -234,8 +168,8 @@ def test_e2e(tmpdir,
 
 def test_e2e_paper_too_small(tmpdir):
     with pytest.raises(EncodingError):
-        test_e2e(tmpdir, "standard", 1, 0, 0, 1, 1, 100, "lorem", "none")
+        test_e2e(tmpdir, "standard", "lorem", "none", 1, 0, 0, 1, 1, 100)
 
 # def test_e2e_magic_bytes(tmpdir):
 #     with pytest.raises(DecodingError):
-#         test_e2e(tmpdir, "standard", 1, 3, 3, 1, 1, 100, "magic_bytes", "none")
+#         test_e2e(tmpdir, "standard", "magic_bytes", "none", 1, 3, 3, 1, 1, 100)

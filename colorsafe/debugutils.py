@@ -4,7 +4,7 @@ import os
 from PIL import ImageDraw, Image
 
 
-def drawPage(page, tmpdir, filename, pixels=None, lines=None, color=(0, 0, 0)):
+def draw_page(page, tmpdir, filename, pixels=None, lines=None, color=(255, 0, 0)):
     """
     Draw page with additional pixels and lines for debugging purposes
     :param page: InputPage type
@@ -20,14 +20,17 @@ def drawPage(page, tmpdir, filename, pixels=None, lines=None, color=(0, 0, 0)):
     # Draw image
     for y in range(page.height):
         for x in range(page.width):
-            pixel = page.getPixel(int(y), int(x))
+            pixel = page.get_pixel(int(y), int(x))
             pixel = tuple(map(operator.mul, pixel, (255,) * 3))
             pixel = tuple(map(int, pixel))
             image_pixels[int(x), int(y)] = pixel
 
     if pixels:
-        for y, x in pixels:
-            image_pixels[x, y] = color
+        for pixel in pixels:
+            if pixel:
+                y, x = pixel
+                if page.width > x >= 0 and page.height > y >= 0:
+                    image_pixels[x, y] = color
 
     if lines:
         draw = ImageDraw.Draw(image)

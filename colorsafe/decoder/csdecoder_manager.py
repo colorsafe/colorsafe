@@ -1,7 +1,7 @@
 from PIL import Image
 import re
 
-from colorsafe.decoder.csdecoder import InputPages
+from colorsafe.decoder.csinput_page import InputPages
 from colorsafe.decoder.csimages_decoder import ColorSafeImagesDecoder
 
 MaxColorVal = 255

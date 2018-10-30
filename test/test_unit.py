@@ -1,4 +1,4 @@
-from colorsafe.constants import MagicByte
+from colorsafe.constants import MagicByte, DefaultThresholdWeight
 
 from colorsafe import constants
 from colorsafe.csdatastructures import ColorChannels
@@ -55,10 +55,10 @@ def test_dot_encode_colordepth3():
 
 
 def test_dot_decode_colordepth1():
-    dot = DotDecoder(ColorChannels(1.0, 1.0, 1.0), 1)
+    dot = DotDecoder(ColorChannels(1.0, 1.0, 1.0), 1, DefaultThresholdWeight)
     assert dot.bitList == [1]
 
-    dot = DotDecoder(ColorChannels(0.0, 0.0, 0.0), 1)
+    dot = DotDecoder(ColorChannels(0.0, 0.0, 0.0), 1, DefaultThresholdWeight)
     assert dot.bitList == [0]
 
     dot = DotDecoder(ColorChannels(0.25, 0.25, 0.25), 1, 0.5)
@@ -81,33 +81,33 @@ def test_dot_decode_colordepth1():
 
 
 def test_dot_decode_colordepth2():
-    dot = DotDecoder(ColorChannels(1.0, 1.0, 1.0), 2)
+    dot = DotDecoder(ColorChannels(1.0, 1.0, 1.0), 2, DefaultThresholdWeight)
     assert dot.bitList == [0, 0]
 
-    dot = DotDecoder(ColorChannels(0.0, 1.0, 1.0), 2)
+    dot = DotDecoder(ColorChannels(0.0, 1.0, 1.0), 2, DefaultThresholdWeight)
     assert dot.bitList == [1, 0]
 
-    dot = DotDecoder(ColorChannels(1.0, 1.0, 0.0), 2)
+    dot = DotDecoder(ColorChannels(1.0, 1.0, 0.0), 2, DefaultThresholdWeight)
     assert dot.bitList == [1, 1]
 
-    dot = DotDecoder(ColorChannels(0, 63.0 / constants.ColorDepthMax, 63.0 / constants.ColorDepthMax), 4)
+    dot = DotDecoder(ColorChannels(0, 63.0 / constants.ColorDepthMax, 63.0 / constants.ColorDepthMax), 4, DefaultThresholdWeight)
     assert dot.bitList == [1, 1, 0, 0]
 
 
 def test_dot_decode_colordepth3():
-    dot = DotDecoder(ColorChannels(0, 0, 0), 3)
+    dot = DotDecoder(ColorChannels(0, 0, 0), 3, DefaultThresholdWeight)
     assert dot.bitList == [0, 0, 0]
 
-    dot = DotDecoder(ColorChannels(1.0, 0, 1.0), 3)
+    dot = DotDecoder(ColorChannels(1.0, 0, 1.0), 3, DefaultThresholdWeight)
     assert dot.bitList == [1, 0, 1]
 
-    dot = DotDecoder(ColorChannels(1.0, 1.0, 1.0), 3)
+    dot = DotDecoder(ColorChannels(1.0, 1.0, 1.0), 3, DefaultThresholdWeight)
     assert dot.bitList == [1, 1, 1]
 
-    dot = DotDecoder(ColorChannels(1.0 / 3.0, 0.0, 1.0), 6)
+    dot = DotDecoder(ColorChannels(1.0 / 3.0, 0.0, 1.0), 6, DefaultThresholdWeight)
     assert dot.bitList == [1, 0, 0, 0, 1, 1]
 
-    dot = DotDecoder(ColorChannels(1.0, 1.0, 1.0), 9)
+    dot = DotDecoder(ColorChannels(1.0, 1.0, 1.0), 9, DefaultThresholdWeight)
     assert dot.bitList == [1, 1, 1, 1, 1, 1, 1, 1, 1]
 
 # DotByte
@@ -133,19 +133,19 @@ def test_dotByte_encode():
 
 def test_dotByte_decode():
     c = ColorChannels(1.0, 1.0, 1.0)
-    dotByte = DotByteDecoder([c] * constants.ByteSize, 1)
+    dotByte = DotByteDecoder([c] * constants.ByteSize, 1, DefaultThresholdWeight)
     assert dotByte.bytesList == [0xFF]
 
     c = ColorChannels(1.0, 1.0, 0.0)
-    dotByte = DotByteDecoder([c] * constants.ByteSize, 2)
+    dotByte = DotByteDecoder([c] * constants.ByteSize, 2, DefaultThresholdWeight)
     assert dotByte.bytesList == [0xFF, 0xFF]
 
     c = ColorChannels(1.0, 1.0, 1.0)
-    dotByte = DotByteDecoder([c] * constants.ByteSize, 3)
+    dotByte = DotByteDecoder([c] * constants.ByteSize, 3, DefaultThresholdWeight)
     assert dotByte.bytesList == [0xFF, 0xFF, 0xFF]
 
     c = ColorChannels(1.0, 1.0 / 3.0, 0.0)
-    dotByte = DotByteDecoder([c] * constants.ByteSize, 6)
+    dotByte = DotByteDecoder([c] * constants.ByteSize, 6, DefaultThresholdWeight)
     assert dotByte.bytesList == [0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00]
 
     c = [
@@ -154,7 +154,7 @@ def test_dotByte_decode():
         ColorChannels(1, 1, 1),
         ColorChannels(1, 1, 1),
     ]
-    dotByte = DotByteDecoder(c * 2, 1)
+    dotByte = DotByteDecoder(c * 2, 1, DefaultThresholdWeight)
     assert dotByte.bytesList == [0b11001100]
 
     # Blurred image
@@ -164,8 +164,8 @@ def test_dotByte_decode():
         ColorChannels(0.95, 0.95, 0.95),
         ColorChannels(0.95, 0.95, 0.95),
     ]
-    dotByte = DotByteDecoder(c * 2, 1)
-    assert dotByte.bytesList == [255]
+    dotByte = DotByteDecoder(c * 2, 1, DefaultThresholdWeight)
+    assert dotByte.bytesList == [0b11001100]
 
 # DotRow
 
@@ -180,12 +180,12 @@ def test_dotRow_encode():
 
 def test_dotRow_decode():
     c = ColorChannels(1.0, 0.0, 1.0)
-    dotRow = DotRowDecoder([c] * 16, 2, 16, 0.5, False)
-    assert dotRow.bytesList == [170, 85, 170, 85]
+    dotRow = DotRowDecoder([c] * 16, 2, 16, 0, 0.5, False)
+    assert dotRow.bytesList == [0, 255, 0, 255]
 
     c = ColorChannels(0.9, 0.1, 0.9)
-    dotRow = DotRowDecoder([c] * 16, 2, 16, 0.5, False)
-    assert dotRow.bytesList == [170, 85, 170, 85]
+    dotRow = DotRowDecoder([c] * 16, 2, 16, 0, 0.5, False)
+    assert dotRow.bytesList == [0, 255, 0, 255]
 
     c = [
         ColorChannels(0.0, 0.0, 0.0),
@@ -193,8 +193,8 @@ def test_dotRow_decode():
         ColorChannels(1.0, 1.0, 1.0),
         ColorChannels(1.0, 1.0, 1.0),
     ]
-    dotRow = DotRowDecoder(c * 4, 1, 16, 0.5, False)
-    assert dotRow.bytesList == [102, 102]
+    dotRow = DotRowDecoder(c * 4, 1, 16, 0, 0.5, True)
+    assert dotRow.bytesList == [MagicByte, MagicByte]
 
     # Randomly blurred image
     c = [
@@ -203,5 +203,47 @@ def test_dotRow_decode():
         ColorChannels(1.0, 1.0, 0.9),
         ColorChannels(0.93, 0.95, 0.91),
     ]
-    dotRow = DotRowDecoder(c * 4, 1, 16, 0.5, False)
-    assert dotRow.bytesList == [85, 85]
+    dotRow = DotRowDecoder(c * 4, 1, 16, 0, 0.5, True)
+    assert dotRow.bytesList == [MagicByte, MagicByte]
+
+    c = [
+        ColorChannels(1.0, 1.0, 1.0),
+        ColorChannels(0.0, 0.0, 0.0),
+        ColorChannels(0.25, 0.25, 0.25),
+        ColorChannels(1.0, 1.0, 1.0),
+        ColorChannels(0.8, 0.8, 0.8),
+        ColorChannels(0.0, 0.0, 0.0),
+        ColorChannels(0.0, 0.0, 0.0),
+        ColorChannels(0.0, 0.0, 0.0),
+        ColorChannels(0.0, 0.0, 0.0),
+        ColorChannels(0.8, 0.8, 0.8),
+        ColorChannels(0.25, 0.25, 0.25),
+        ColorChannels(1.0, 1.0, 1.0),
+        ColorChannels(1.0, 1.0, 1.0),
+        ColorChannels(0.75, 0.75, 0.75),
+        ColorChannels(0.0, 0.0, 0.0),
+        ColorChannels(0.25, 0.25, 0.25)
+    ]
+    dotRow = DotRowDecoder(c, 1, 16, 0, 0.5, True)
+    assert dotRow.bytesList == [ord('L'), ord('o')]
+
+    c = [
+        ColorChannels(0.4375, 0.4375, 0.4375),
+        ColorChannels(1.0, 1.0, 1.0),
+        ColorChannels(0.8125, 0.8125, 0.8125),
+        ColorChannels(0.1875, 0.1875, 0.1875),
+        ColorChannels(0.0, 0.0, 0.0),
+        ColorChannels(0.0, 0.0, 0.0),
+        ColorChannels(0.0, 0.0, 0.0),
+        ColorChannels(0.0, 0.0, 0.0),
+        ColorChannels(0.0, 0.0, 0.0),
+        ColorChannels(0.0, 0.0, 0.0),
+        ColorChannels(0.0, 0.0, 0.0),
+        ColorChannels(0.25, 0.25, 0.25),
+        ColorChannels(1.0, 1.0, 1.0),
+        ColorChannels(0.75, 0.75, 0.75),
+        ColorChannels(0.0, 0.0, 0.0),
+        ColorChannels(0.25, 0.25, 0.25)
+    ]
+    dotRow = DotRowDecoder(c * 4, 1, 16, 0, 0.5, True)
+    assert dotRow.bytesList == [ord('S'), ord('e')]

@@ -1,28 +1,6 @@
-from colorsafe.csdatastructures import constants, DotByte, DotRow, Sector, Page, ColorSafeFile, MetadataSector, ColorChannels
+from colorsafe.csdatastructures import constants, DotByte, DotRow, Sector, Page, ColorSafeFile, MetadataSector
 from colorsafe.csdatastructures import Dot
 from colorsafe.utils import floatToBinaryList, intToBinaryList
-
-
-class InputPages:
-    def __init__(self, totalPages, height, width):
-        self.totalPages = totalPages
-        self.height = height
-        self.width = width
-
-    def getPagePixel(self, page, y, x):
-        """For caller to implement"""
-        pass
-
-
-class InputPage:
-    def __init__(self, pages, pageNum):
-        self.pages = pages
-        self.height = pages.height
-        self.width = pages.width
-        self.pageNum = pageNum
-
-    def getPixel(self, y, x):
-        return self.pages.getPagePixel(self.pageNum, y, x)
 
 
 class DotDecoder(Dot):
@@ -33,7 +11,7 @@ class DotDecoder(Dot):
     TODO: Extend to multiple shades
     """
 
-    def __init__(self, channels, colorDepth, thresholdWeight=0.0):
+    def __init__(self, channels, colorDepth, thresholdWeight):
         """Takes in a list of channels, returns a list of bytes
         """
         channelNum = self.getChannelNum(colorDepth)
@@ -68,9 +46,6 @@ class DotDecoder(Dot):
         val = channels.getAverageShade()
 
         bitList = [int(val > thresholdWeight)]
-
-        # val = max(0.0, val - thresholdWeight)
-        # bitList = floatToBinaryList(val, colorDepth)
         return bitList
 
     def decodeSecondaryMode(self, channels, colorDepth):
@@ -110,7 +85,7 @@ class DotByteDecoder(DotByte):
     """A group of 8 Dots, representing colorDepth bytes of data.
     """
 
-    def __init__(self, channelsList, colorDepth, thresholdWeight=0.0):
+    def __init__(self, channelsList, colorDepth, thresholdWeight):
         """Takes in a list of exactly ByteSize (8) channels, returns a list of decoded bytes.
 
         Sets each dot's decoded data into colorDepth bytes.
@@ -142,7 +117,7 @@ class DotRowDecoder(DotRow):
             colorDepth,
             width,
             rowNumber,
-            thresholdWeight=0.0,
+            thresholdWeight,
             xorRow=True):
         """Takes in a list of width channels, returns a list of decoded bytes
         """
