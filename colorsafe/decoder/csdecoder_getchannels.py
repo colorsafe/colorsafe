@@ -1,14 +1,13 @@
 import math
 import os
-import sys
 
 from colorsafe.debugutils import draw_page
 
-from colorsafe import exceptions, utils
+from colorsafe import constants, exceptions
 from colorsafe.csdatastructures import ColorChannels
 
 
-def get_normalized_channels_list(page, data_bounds, sector_height, sector_width, sectorNum, tmpdir):
+def get_normalized_channels_list(page, data_bounds, sector_height, sector_width, page_num, sector_num, tmpdir):
     if tmpdir:
         tmpdir_bounds = os.path.join(str(tmpdir), "channels")
         try:
@@ -26,13 +25,14 @@ def get_normalized_channels_list(page, data_bounds, sector_height, sector_width,
                                       right,
                                       sector_height,
                                       sector_width,
-                                      sectorNum,
+                                      page_num,
+                                      sector_num,
                                       tmpdir)
 
     normalized_channels_list = normalizeChannelsList(channels_list)
 
     if (tmpdir):
-        f = open(os.path.join(tmpdir, "normalized_channels_" + str(sectorNum) + ".txt"), "w")
+        f = open(os.path.join(tmpdir, "normalized_channels_" + str(page_num) + "_" + str(sector_num) + ".txt"), "w")
         for i in channels_list:
             f.write(str(i.getChannels()) + "\r")
         f.close()
@@ -40,13 +40,55 @@ def get_normalized_channels_list(page, data_bounds, sector_height, sector_width,
     return normalized_channels_list
 
 
-def get_channels_list(page, top, bottom, left, right, sector_height, sector_width, sector_num, tmpdir):
-    # TODO: Use bilinear interpolation to get pixel values instead
+def get_pixels_and_weight(y, x, top, bottom, left, right, sector_height, sector_width, page):
+    # TODO: Improve speed by not getting values that would add an insigificant amount to weight
+
     total_pixels_height = bottom - top + 1
     total_pixels_width = right - left + 1
 
-    pixels_per_dot_width = float(total_pixels_height) / float(sector_height)
-    pixels_per_dot_height = float(total_pixels_width) / float(sector_width)
+    pixels_per_dot_width = float(total_pixels_width) / float(sector_width)
+    pixels_per_dot_height = float(total_pixels_height) / float(sector_height)
+
+    # Center halfway through the dot
+    y_center = pixels_per_dot_height * (y + constants.HalfPixel) + top
+    x_center = pixels_per_dot_width * (x + constants.HalfPixel) + left
+
+    # Don't use coordinates outside the page bounds
+    y_min = max(y_center - pixels_per_dot_height / 2, 0)
+    y_max = min(y_center + pixels_per_dot_height / 2, page.height - 1)
+    x_min = max(x_center - pixels_per_dot_width / 2, 0)
+    x_max = min(x_center + pixels_per_dot_width / 2, page.width - 1)
+
+    pixels_and_weight = list()
+    weight_sum = 0.0
+
+    y_pixel_min = int(math.floor(y_min))
+    y_pixel_max = int(math.floor(y_max))
+    x_pixel_min = int(math.floor(x_min))
+    x_pixel_max = int(math.floor(x_max))
+    for y_pixel in range(y_pixel_min, y_pixel_max + 1):
+        for x_pixel in range(x_pixel_min, x_pixel_max + 1):
+            pixel = page.get_pixel(y_pixel, x_pixel)
+
+            weight = 1.0
+
+            y_diff = abs(y_pixel + constants.HalfPixel - y_center)
+            x_diff = abs(x_pixel + constants.HalfPixel - x_center)
+
+            if y_diff > 0.5:
+                weight *= 1 / ((2 * y_diff) ** 2)
+
+            if x_diff > 0.5:
+                weight *= 1 / ((2 * x_diff) ** 2)
+
+            pixels_and_weight.append((pixel, weight, y_pixel, x_pixel))
+            weight_sum += weight
+
+    return pixels_and_weight, weight_sum, y_center, x_center
+
+
+def get_channels_list(page, top, bottom, left, right, sector_height, sector_width, page_num, sector_num, tmpdir):
+    # TODO: Would bilinear interpolation be more accurate?
 
     if tmpdir:
         all_pixels_and_weight = list()
@@ -55,46 +97,19 @@ def get_channels_list(page, top, bottom, left, right, sector_height, sector_widt
     channels_list = list()
     for y in range(sector_height):
         for x in range(sector_width):
-            # Center halfway through the dot, y + 0.5 and x + 0.5
-            y_center = pixels_per_dot_height * (y + 0.5) + top
-            x_center = pixels_per_dot_width * (x + 0.5) + left
 
-            y_min = y_center - pixels_per_dot_height / 2
-            y_max = y_center + pixels_per_dot_height / 2
-            x_min = x_center - pixels_per_dot_width / 2
-            x_max = x_center + pixels_per_dot_width / 2
-
-            pixels_and_weight = list()
-            weight_sum = 0.0
-
-            y_pixel_min = int(math.floor(y_min))
-            y_pixel_max = int(math.floor(y_max))
-            x_pixel_min = int(math.floor(x_min))
-            x_pixel_max = int(math.floor(x_max))
-            for y_pixel in range(y_pixel_min, y_pixel_max + 1):
-                for x_pixel in range(x_pixel_min, x_pixel_max + 1):
-                    pixel = page.get_pixel(y_pixel, x_pixel)
-
-                    weight = 1.0
-
-                    if y_pixel > y_max - 1:
-                        weight *= (y_max % 1)
-
-                    if y_pixel < y_min:
-                        weight *= ((1 - y_min) % 1)
-
-                    if x_pixel > x_max - 1:
-                        weight *= (x_max % 1)
-
-                    if x_pixel < x_min:
-                        weight *= ((1 - x_min) % 1)
-
-                    weight_sum += weight
-
-                    pixels_and_weight.append((pixel, weight, y_pixel, x_pixel))
+            pixels_and_weight, weight_sum, y_center, x_center = get_pixels_and_weight(y,
+                                                                                      x,
+                                                                                      top,
+                                                                                      bottom,
+                                                                                      left,
+                                                                                      right,
+                                                                                      sector_height,
+                                                                                      sector_width,
+                                                                                      page)
 
             if tmpdir:
-                all_pixels_and_weight.append((y, x, pixels_and_weight))
+                all_pixels_and_weight.append((y, x, pixels_and_weight, y_center, x_center))
 
             number_of_channels = len(page.get_pixel(0, 0))
             channels_sum = [0] * number_of_channels
@@ -107,12 +122,23 @@ def get_channels_list(page, top, bottom, left, right, sector_height, sector_widt
             channels_list.append(channels_avg)
 
     if tmpdir:
-        f = open(os.path.join(tmpdir, "all_pixels_and_weight_" + str(sector_num) + ".txt"), "w")
-        for y, x, pixels_and_weight in all_pixels_and_weight:
-            f.write(str(y) + "," + str(x) + ":\r")
+        pixels_centers = list()
+        pixels_colors = list()
+
+        f = open(os.path.join(tmpdir, "all_pixels_and_weight_" + str(page_num) + "_" + str(sector_num) + ".txt"), "w")
+        for y, x, pixels_and_weight, y_center, x_center in all_pixels_and_weight:
+            f.write(str(y) + "," + str(x) + " (" + str(y_center) + "," + str(x_center) + "):\r")
             for i in pixels_and_weight:
-                f.write("    " + str(i) + "\r")
+                pixel, weight, y_pixel, x_pixel = i
+                f.write("    " + str((y_pixel, x_pixel, pixel, weight)) + "\r")
+
+                pixels_centers.append((int(math.floor(y_center)), int(math.floor(x_center))))
+                if not x % 2 and not y % 2:
+                    pixels_colors.append((y_pixel, x_pixel, (255 - int(weight * 255), 255, 255)))
         f.close()
+
+        draw_page(page, tmpdir, "pixels_sampling_" + str(page_num) + "_" + str(sector_num), None, None, pixels_colors)
+        draw_page(page, tmpdir, "pixels_centers_" + str(page_num) + "_" + str(sector_num), pixels_centers, None, None)
 
     color_channels_list = map(lambda i: ColorChannels(*i), channels_list)
 

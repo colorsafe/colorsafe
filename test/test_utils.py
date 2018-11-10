@@ -1,3 +1,6 @@
+import random
+import string
+
 import PIL
 import glob
 import os
@@ -6,13 +9,16 @@ from PIL import Image, ImageFilter
 
 from colorsafe.constants import MagicByte
 
-in_file_name = "text.txt"
-out_file_name = "out.txt"
-metadata_file_name = "metadata.txt"
-out_image_name_wildcard = "out_*.png"
-altered_image_name_wildcard = "altered_*.png"
-out_image_name_prefix = "out"
-altered_image_name_prefix = "altered"
+
+def get_random_string(n, seed=None):
+    random.seed(seed)
+    return ''.join(chr(random.randint(0, 2 ** 7 - 1)) for _ in xrange(n))
+
+
+def get_random_alphanumeric_string(n, seed=None):
+    random.seed(seed)
+    return ''.join(random.choice(string.ascii_letters + string.digits) for _ in xrange(n))
+
 
 texts = {"lorem":
          "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Phasellus sollicitudin tincidunt diam id gravida."
@@ -23,18 +29,21 @@ texts = {"lorem":
          "amet augue. Nam rhoncus leo non urna sodales, vitae elementum magna viverra. Aliquam aliquam eu neque vel"
          "dictum. Nulla fermentum placerat elit. Vivamus non augue congue, maximus sem non, mollis nulla. Donec non"
          "elit purus.",
-         "magic_bytes": chr(MagicByte) * 1000}
-# TODO: Test a unicode string case
-
-image_alterations = {"none": lambda tmpdir: out_image_name_wildcard,
-                     "rotate0.1": lambda tmpdir: modify_image(tmpdir, rotate_image, 0.2),
-                     "gaussian_blur0.2": lambda tmpdir: modify_image(tmpdir, gaussian_blur_image, 0.2),
-                     "shift10": lambda tmpdir: modify_image(tmpdir, shift_image, 10),
-                     "resize2.1x": lambda tmpdir: modify_image(tmpdir, resize_image, 2.1)
-                     }
+         "magic_bytes": chr(MagicByte) * 1000,
+         "random_const_3000": get_random_alphanumeric_string(3000, 0),
+         "random_const_20000": get_random_alphanumeric_string(20000, 0)}
 
 
-def modify_image(tmpdir, alter_image_function, *alter_function_args):
+def modify(alter, *args):
+    return lambda tmpdir: modify_tmpdir(tmpdir, alter, *args)
+
+
+def modify_tmpdir(tmpdir, alter, *args):
+    out_image_name_wildcard = "out_*.png"
+    altered_image_name_wildcard = "altered_*.png"
+    out_image_name_prefix = "out"
+    altered_image_name_prefix = "altered"
+
     filenames = glob.glob(
         os.path.join(
             str(tmpdir),
@@ -44,7 +53,7 @@ def modify_image(tmpdir, alter_image_function, *alter_function_args):
         try:
             img = Image.open(filename)
 
-            out = alter_image_function(img, alter_function_args)
+            out = alter(img, *args)
 
             altered_file_name = filename.replace(out_image_name_prefix, altered_image_name_prefix)
             out.convert(img.mode).save(altered_file_name)
@@ -55,8 +64,12 @@ def modify_image(tmpdir, alter_image_function, *alter_function_args):
     return altered_image_name_wildcard
 
 
-def rotate_image(image, args):
-    angle = args[0]
+def no_modify(tmpdir):
+    out_image_name_wildcard = "out_*.png"
+    return out_image_name_wildcard
+
+
+def rotate_image(image, angle):
 
     image2 = image.convert('RGBA')
 
@@ -67,22 +80,28 @@ def rotate_image(image, args):
     return Image.composite(rotated_image, rotated_image2, rotated_image)
 
 
-def gaussian_blur_image(image, args):
-    radius = args[0]
+def offset_partial(image, width_factor, height_factor):
+    # Half pixel offset in x and y
+    resize = image.resize((int(image.width * width_factor), int(image.height * height_factor)), PIL.Image.BICUBIC)
+
+    resize2 = PIL.ImageChops.offset(resize, 1, yoffset=1)
+    blend1 = PIL.ImageChops.blend(resize, resize2, 0.5)
+    blend2 = PIL.ImageChops.blend(resize, blend1, 0.5)
+    return blend2
+
+
+def gaussian_blur_image(image, radius):
 
     return image.filter(ImageFilter.GaussianBlur(radius=radius))
 
 
-def shift_image(image, args):
-    yoffset = args[0]
+def shift_image(image, yoffset):
 
     return PIL.ImageChops.offset(image, 0, yoffset=yoffset)
 
 
-def resize_image(image, args):
-    factor = args[0]
+def resize_image(image, width_factor, height_factor):
 
-    out = image.resize((int(image.width * factor), int(image.height * factor)), PIL.Image.BICUBIC)
-    out2 = image.resize((int(out.width * (1 / factor)), int(out.height * (1 / factor))), PIL.Image.BICUBIC)
+    out = image.resize((int(image.width * width_factor), int(image.height * height_factor)), PIL.Image.BICUBIC)
 
-    return out2
+    return out

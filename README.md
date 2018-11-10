@@ -1,9 +1,9 @@
 # ColorSafe
 
-A data matrix scheme for printing on paper. Inspired by
+A data matrix scheme for printing on paper and microfilm. Inspired by
 [PaperBak](https://github.com/Rupan/paperbak), ColorSafe is written in Python
-and has a well-defined specification. It aims to allow a few Megabytes of data
-(or more) to be stored on paper for a worst case scenario backup, for
+and has a flexible specification. It aims to allow a few Megabytes of data
+(or more) to be stored on printable media for a worst case scenario backup, for
 extremely long-term archiving, or just for fun. With best practices, ColorSafe
 encoded data can safely withstand the vicissitudes of technology changes over
 long periods of time.

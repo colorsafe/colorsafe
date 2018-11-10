@@ -1,4 +1,3 @@
-import itertools
 import operator
 import os
 import sys
@@ -6,12 +5,13 @@ from copy import copy
 
 from colorsafe.debugutils import draw_page
 
-from colorsafe import utils, defaults, exceptions
+from colorsafe import constants, defaults, exceptions, utils
+from colorsafe.decoder.csdecoder_getchannels import get_pixels_and_weight
 
 
-def get_data_bounds(page, sector_height, sector_width, gap_size, tmpdir):
+def get_data_bounds(page, sector_height, sector_width, gap_size, page_num, tmpdir):
     if tmpdir:
-        tmpdir_bounds = os.path.join(str(tmpdir), "bounds")
+        tmpdir_bounds = os.path.join(str(tmpdir), "bounds_" + str(page_num))
         os.mkdir(tmpdir_bounds)
         tmpdir = tmpdir_bounds
 
@@ -28,17 +28,25 @@ def get_data_bounds(page, sector_height, sector_width, gap_size, tmpdir):
         if height_per_dot < 1.0 or width_per_dot < 1.0:
             raise exceptions.DecodingError("Image has less than 1.0x resolution, cannot get all dots.")
 
-        top, bottom, left, right = get_real_sector_data_boundaries(page,
-                                                                   height_per_dot,
-                                                                   width_per_dot,
-                                                                   top_temp,
-                                                                   bottom_temp,
-                                                                   left_temp,
-                                                                   right_temp)
+        data_bound = get_real_sector_data_boundaries(page,
+                                                     height_per_dot,
+                                                     width_per_dot,
+                                                     top_temp,
+                                                     bottom_temp,
+                                                     left_temp,
+                                                     right_temp)
 
-        data_bounds.append((top, bottom, left, right))
+        if (top_temp, bottom_temp, left_temp, right_temp) != data_bound:
+            corrected_data_bound = correct_data_bound(data_bound, sector_height, sector_width, page)
+
+            data_bounds.append(corrected_data_bound)
+        else:
+            # No data found within the bounds - this sector is most likely not valid or readable, so don't add it
+            pass
+
 
         if tmpdir:
+            top, bottom, left, right = data_bound
             debug_data_bounds.extend([(top, left), (top, right), (bottom, left), (bottom, right)])
 
     if tmpdir:
@@ -86,9 +94,6 @@ def get_bounds(page, tmpdir):
 
     # Transpose lists so each borders points are within 1 list, not spread across all lists
     # NOTE: Transposing turns the vertical sub-borders into a list of horizontal lines, and vice-versa
-    # TODO: Need to either tranpose by matching like values, or else work on inferring missing borders above
-    # TODO: Left off here
-
     horizontal_borders = transpose_and_infer(clean_vertical_borders, True)
     vertical_borders = transpose_and_infer(clean_horizontal_borders, False)
 
@@ -537,7 +542,7 @@ def get_real_sector_data_boundary(page, leastAlong, mostAlong, leastPerp, mostPe
         return dataIndex
 
     # TODO: Improve this value
-    gapToDataTolerance = 0.25
+    gapToDataTolerance = 0.4
 
     # Get the closest value that has a sizeable drop from the max of all previous shades
     # This only works if the initial shade is assumed to be the darkest part of the border
@@ -608,3 +613,87 @@ def get_real_sector_data_boundaries(page, heightPerDot, widthPerDot, topmost, bo
     right = right if right else rightmost
 
     return top, bottom, left, right
+
+
+def correct_one_data_bound(data_bound, sector_height, sector_width, page, right_else_bottom):
+    """
+    Get the corrected data bound for right or bottom data bound. The bound passed in will be found by looking where
+    the pixels start, but the encoding may have each dot filled partially; the partial pixels will be in the top-left.
+    Thus, we find the right or bottom bound where the pixels begin, since whitespace won't be counted, and decoding will
+    be shifted off slightly. There is no way to look for dots without a timing pattern, and looking for pixels is wrong.
+
+    To fix this, look for a bound that optimizes some rows or columns to have a weighted standard deviation as
+    small as possible. This happens when dots and whitespace overlap as little as possible within the row or column,
+    e.g. each dot is filled with pixels that have minimal variance.
+
+    An encoded timing pattern would simplify this, at the expense of allowing less data to be encoded.
+
+    TODO: Support shades
+    TODO: Search for larger than 1 pixel modifier to support dots with > 1 whitespace pixel
+    TODO: For normal (blurred) data, relaxing the low_data threshold that generates data_bound to get a better bound
+
+    :param data_bound: The data bounds found by looking where pixels begin.
+    :param sector_height: Dot height of sector
+    :param sector_width: Dot width of sector
+    :param page: Page to be decoded
+    :param right_else_bottom: True for right, False for bottom
+    :return: The correct bound modifier, either right or bottom
+    """
+
+    top, bottom, left, right = data_bound
+
+    min_sum_weighted_stds = sys.maxint
+    best_modifier = 0
+
+    divisions = 4
+    modifier_possibilites = map(lambda i: float(i) / divisions, range(divisions + 1))
+
+    for bound_modifier in modifier_possibilites:
+        weighted_stds = list()
+
+        # Right bound
+        along_max = sector_height if right_else_bottom else sector_width
+        along_division = 4
+
+        perp_max = sector_width if right_else_bottom else sector_height
+        for along_iter in range(0, along_max, along_max / along_division):
+            for perp_iter in range(0, perp_max):
+                x = perp_iter if right_else_bottom else along_iter
+                y = along_iter if right_else_bottom else perp_iter
+
+                right_modifier = bound_modifier if right_else_bottom else 0
+                bottom_modifier = bound_modifier if not right_else_bottom else 0
+
+                pixels_and_weight, weight_sum, y_center, x_center = get_pixels_and_weight(y,
+                                                                                          x,
+                                                                                          top,
+                                                                                          bottom + bottom_modifier,
+                                                                                          left,
+                                                                                          right + right_modifier,
+                                                                                          sector_height,
+                                                                                          sector_width,
+                                                                                          page)
+
+                for i in range(0, constants.ColorChannels):
+                    shade_and_weight = map(lambda (pixel, weight, _, __): (pixel[i], weight), pixels_and_weight)
+                    weighted_std = utils.weighted_standard_deviation_squared(shade_and_weight)
+                    weighted_stds.append(weighted_std)
+
+        sum_weighted_stds = sum(weighted_stds)
+
+        if sum_weighted_stds < min_sum_weighted_stds:
+            min_sum_weighted_stds = sum_weighted_stds
+            best_modifier = bound_modifier
+
+        continue
+
+    return best_modifier
+
+
+def correct_data_bound(data_bound, sector_height, sector_width, page):
+    top, bottom, left, right = data_bound
+
+    right_modifier = correct_one_data_bound(data_bound, sector_height, sector_width, page, True)
+    bottom_modifier = correct_one_data_bound(data_bound, sector_height, sector_width, page, False)
+
+    return (top, bottom + bottom_modifier, left, right + right_modifier)

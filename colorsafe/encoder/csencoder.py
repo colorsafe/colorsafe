@@ -172,7 +172,7 @@ class SectorEncoder(Sector):
         self.data = data
 
         self.dataRowCount, self.eccRowCount, self.rsBlockSizes, self.dataBlockSizes, self.eccBlockSizes = \
-            Sector.getBlockSizes(height, width, colorDepth, eccRate)
+            Sector.get_block_sizes(height, width, colorDepth, eccRate)
 
         self.putData(dataStart)
         self.putECCData(dataStart)
@@ -258,7 +258,7 @@ class MetadataSectorEncoder(MetadataSector, SectorEncoder):
         self.dataStart = 0  # TODO: Make this an argument for putdata, not a self object
 
         self.dataRowCount, self.eccRowCount, self.rsBlockSizes, self.dataBlockSizes, self.eccBlockSizes = \
-            Sector.getBlockSizes(height, width, colorDepth, eccRate)
+            Sector.get_block_sizes(height, width, colorDepth, eccRate)
 
         self.putMetadata(metadata)
         self.putData()
@@ -422,7 +422,7 @@ class ColorSafeFileEncoder(ColorSafeFile):
             self.dataRowCount / constants.ByteSize
 
         for dataStart in range(0, len(self.data), self.dataPerSector):
-            # TODO: Setting data into Sector in place (using Sector's dataStart
+            # TODO: Setting data into Sector in place (using Sector's dataStart)
             # argument) may improve performance
             data = self.data[dataStart: dataStart + self.dataPerSector]
 

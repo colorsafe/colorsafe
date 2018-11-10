@@ -29,8 +29,8 @@ class ColorSafeImagesDecoder(ColorSafeImages):
         dataStr = ""
         metadataStr = ""
 
-        for pageNum in range(pages.totalPages):
-            page = InputPage(pages, pageNum)
+        for page_num in range(pages.totalPages):
+            page = InputPage(pages, page_num)
 
             # TODO: Calculate dynamically
             # TODO: Override by command-line argument
@@ -39,7 +39,7 @@ class ColorSafeImagesDecoder(ColorSafeImages):
             gapSize = defaults.gapSize
             eccRate = defaults.eccRate
 
-            bounds = get_data_bounds(page, sectorHeight, sectorWidth, gapSize, tmpdir)
+            bounds = get_data_bounds(page, sectorHeight, sectorWidth, gapSize, page_num, tmpdir)
 
             sectorNum = -1
 
@@ -50,7 +50,7 @@ class ColorSafeImagesDecoder(ColorSafeImages):
                 # perc = str(int(100.0 * sectorNum / (sectorsHorizontal*sectorsVertical))) + "%"
 
                 channelsList = get_normalized_channels_list(page, each_bounds, sectorHeight, sectorWidth,
-                                                            sectorNum, tmpdir)
+                                                            page_num, sectorNum, tmpdir)
 
                 # TODO: Calculate dynamically
                 bucketNum = 40

@@ -1,7 +1,7 @@
 from colorsafe.constants import MagicByte, DefaultThresholdWeight
 
 from colorsafe import constants
-from colorsafe.csdatastructures import ColorChannels
+from colorsafe.csdatastructures import ColorChannels, Sector
 from colorsafe.decoder.csdecoder import DotDecoder, DotByteDecoder, DotRowDecoder
 from colorsafe.encoder.csencoder import DotEncoder, DotRowEncoder, DotByteEncoder
 
@@ -167,6 +167,7 @@ def test_dotByte_decode():
     dotByte = DotByteDecoder(c * 2, 1, DefaultThresholdWeight)
     assert dotByte.bytesList == [0b11001100]
 
+
 # DotRow
 
 
@@ -247,3 +248,73 @@ def test_dotRow_decode():
     ]
     dotRow = DotRowDecoder(c * 4, 1, 16, 0, 0.5, True)
     assert dotRow.bytesList == [ord('S'), ord('e')]
+
+    # Color depth 2
+    c = [
+        ColorChannels(1.0, 0.0, 1.0),
+        ColorChannels(0.0, 1.0, 1.0),
+        ColorChannels(1.0, 1.0, 1.0),
+        ColorChannels(1.0, 0.0, 1.0),
+        ColorChannels(1.0, 0.0, 1.0),
+        ColorChannels(1.0, 1.0, 1.0),
+        ColorChannels(1.0, 1.0, 1.0),
+        ColorChannels(1.0, 1.0, 1.0),
+        ColorChannels(0.0, 1.0, 1.0),
+        ColorChannels(0.0, 1.0, 1.0),
+        ColorChannels(0.0, 1.0, 1.0),
+        ColorChannels(1.0, 1.0, 0.0),
+        ColorChannels(1.0, 0.0, 1.0),
+        ColorChannels(1.0, 1.0, 1.0),
+        ColorChannels(1.0, 1.0, 1.0),
+        ColorChannels(1.0, 1.0, 1.0)]
+
+    dotRow = DotRowDecoder(c, 2, 16, 0, 0.5, True)
+    assert dotRow.bytesList == [ord('W'), ord('L'), ord('Z'), ord('M')]
+
+
+def test_sector_get_block_sizes_color_1():
+    color_depth = 1
+    dataRowCount, eccRowCount, rsBlockSizes, dataBlockSizes, eccBlockSizes = \
+        Sector.get_block_sizes(64, 64, color_depth, 0.2)
+
+    assert dataRowCount == 52
+    assert eccRowCount == 11
+    assert sum(rsBlockSizes) == (dataRowCount + eccRowCount) * 64 * 1 / 8
+    assert sum(dataBlockSizes) == dataRowCount * 64 * 1 / 8
+    assert sum(eccBlockSizes) == eccRowCount * 64 * 1 / 8
+
+    assert rsBlockSizes == [252, 252]
+    assert dataBlockSizes == [208, 208]
+    assert eccBlockSizes == [44, 44]
+
+
+def test_sector_get_block_sizes_color_2():
+    color_depth = 2
+    dataRowCount, eccRowCount, rsBlockSizes, dataBlockSizes, eccBlockSizes = \
+        Sector.get_block_sizes(64, 64, color_depth, 0.2)
+
+    assert dataRowCount == 52
+    assert eccRowCount == 11
+    assert sum(rsBlockSizes) == (dataRowCount + eccRowCount) * 64 * color_depth / 8
+    assert sum(dataBlockSizes) == dataRowCount * 64 * color_depth / 8
+    assert sum(eccBlockSizes) == eccRowCount * 64 * color_depth / 8
+
+    assert rsBlockSizes == [255, 255, 249, 249]
+    assert dataBlockSizes == [210, 210, 206, 206]
+    assert eccBlockSizes == [45, 45, 43, 43]
+
+
+def test_sector_get_block_sizes_color_3():
+    color_depth = 3
+    dataRowCount, eccRowCount, rsBlockSizes, dataBlockSizes, eccBlockSizes = \
+        Sector.get_block_sizes(64, 64, color_depth, 0.2)
+
+    assert dataRowCount == 52
+    assert eccRowCount == 11
+    assert sum(rsBlockSizes) == (dataRowCount + eccRowCount) * 64 * color_depth / 8
+    assert sum(dataBlockSizes) == dataRowCount * 64 * color_depth / 8
+    assert sum(eccBlockSizes) == eccRowCount * 64 * color_depth / 8
+
+    assert rsBlockSizes == [255, 255, 255, 255, 246, 246]
+    assert dataBlockSizes == [210, 210, 210, 210, 204, 204]
+    assert eccBlockSizes == [45, 45, 45, 45, 42, 42]

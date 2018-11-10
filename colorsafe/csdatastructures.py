@@ -1,5 +1,6 @@
 import math
 import constants
+import utils
 
 
 class ColorChannels:
@@ -108,44 +109,39 @@ class Sector:
     """
 
     @staticmethod
-    def getBlockSizes(height, width, colorDepth, eccRate):
-        rsBlockSizes = list()
-        dataBlockSizes = list()
-        eccBlockSizes = list()
+    def get_block_sizes(height, width, color_depth, ecc_rate):
+        def fill_block_sizes(bytes, max_bytes_per_block):
+            if bytes <= max_bytes_per_block:
+                return [bytes]
+            else:
+                block_sizes = [max_bytes_per_block] * (bytes / max_bytes_per_block)
 
-        dataRowCount = Sector.getDataRowCount(height, eccRate)
-        eccRowCount = height - constants.MagicRowHeight - dataRowCount
+                remainder = bytes % max_bytes_per_block
+                if remainder != 0:
+                    last_two_avg = utils.average([remainder, max_bytes_per_block])
+                    block_sizes[-1] = int(math.ceil(last_two_avg))
+                    block_sizes.append(int(math.floor(last_two_avg)))
 
-        totalBytes = (height - 1) * width * \
-            colorDepth / constants.ByteSize
+            return block_sizes
 
-        if totalBytes <= constants.RSBlockSizeMax:
-            rsBlockSizes.append(totalBytes)
-        else:
-            rsBlockSizes = [constants.RSBlockSizeMax] * \
-                (totalBytes / constants.RSBlockSizeMax)
+        data_row_count = Sector.getDataRowCount(height, ecc_rate)
+        ecc_row_count = height - constants.MagicRowHeight - data_row_count
 
-            if totalBytes % constants.RSBlockSizeMax != 0:
-                rsBlockSizes.append(totalBytes % constants.RSBlockSizeMax)
+        total_bytes = (data_row_count + ecc_row_count) * width * color_depth / constants.ByteSize
+        data_bytes = data_row_count * width * color_depth / constants.ByteSize
+        ecc_bytes = ecc_row_count * width * color_depth / constants.ByteSize
 
-                lastVal = int(math.floor(
-                    (rsBlockSizes[-1] + rsBlockSizes[-2]) / 2.0))
-                secondLastVal = int(math.ceil(
-                    (rsBlockSizes[-1] + rsBlockSizes[-2]) / 2.0))
+        data_row_percentage = float(data_row_count) / (height - constants.MagicRowHeight)
+        ecc_row_percentage = float(ecc_row_count) / (height - constants.MagicRowHeight)
 
-                rsBlockSizes[-1] = lastVal
-                rsBlockSizes[-2] = secondLastVal
+        max_data_block_size = int(round(data_row_percentage * constants.RSBlockSizeMax))
+        max_ecc_block_size = int(round(ecc_row_percentage * constants.RSBlockSizeMax))
 
-        for size in rsBlockSizes:
-            dataRowPercentage = float(
-                dataRowCount) / (height - constants.MagicRowHeight)
-            eccRowPercentage = float(eccRowCount) / (height - constants.MagicRowHeight)
+        rs_block_sizes = fill_block_sizes(total_bytes, constants.RSBlockSizeMax)
+        data_block_sizes = fill_block_sizes(data_bytes, max_data_block_size)
+        ecc_block_sizes = fill_block_sizes(ecc_bytes, max_ecc_block_size)
 
-            dataBlockSizes.append(
-                int(math.floor(size * dataRowPercentage)))
-            eccBlockSizes.append(int(math.ceil(size * eccRowPercentage)))
-
-        return dataRowCount, eccRowCount, rsBlockSizes, dataBlockSizes, eccBlockSizes
+        return data_row_count, ecc_row_count, rs_block_sizes, data_block_sizes, ecc_block_sizes
 
     @staticmethod
     def getDataRowCount(height, eccRate):

@@ -35,3 +35,5 @@ MaxSkew = 5
 MaxSkewPerc = 0.002
 
 DefaultThresholdWeight = 0.5
+
+HalfPixel = 0.5

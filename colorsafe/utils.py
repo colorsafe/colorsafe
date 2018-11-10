@@ -28,6 +28,16 @@ def standard_deviation_squared(l):
     return sum(map(lambda x: (x - average(l)) ** 2, l)) / (len(l) - 1)
 
 
+def weighted_standard_deviation_squared(l):
+    if len(l) < 2:
+        # TODO: Throw error
+        pass
+
+    w_sum = sum(map(lambda (x, w): w, l))
+    l_avg = sum(map(lambda (x, w): x * w, l)) / w_sum
+    return sum(map(lambda (x, w): ((x - l_avg) * w) ** 2, l)) / (w_sum ** 2)
+
+
 def sum_of_squares(l):
     return sum(map(lambda x: x ** 2, l))
 

@@ -1,35 +1,39 @@
 import glob
 import os
+
 import pytest
-import random
 
 from colorsafe.exceptions import EncodingError
 
 from colorsafe import utils
 from colorsafe.decoder.csdecoder_manager import ColorSafeDecoder
 from colorsafe.encoder.csencoder_manager import ColorSafeEncoder
-from test_utils import texts, in_file_name, image_alterations, out_file_name, metadata_file_name
+from test_utils import texts, get_random_string, gaussian_blur_image, modify, shift_image, rotate_image, resize_image, \
+    no_modify, offset_partial
 
-COLOR_DEPTH_RANGE = range(1, 4)
+# TODO: Try a local threshold, rather than sector-wide, for better decoding results.
+
+COLOR_DEPTH_MIN = 1
+COLOR_DEPTH_MAX = 3
+COLOR_DEPTH_RANGE = range(COLOR_DEPTH_MIN, COLOR_DEPTH_MAX + 1)
 DEBUG = False
 
-RANDOM_TEST_TRIALS = 3
+RANDOM_TEST_TRIALS = 2
 
 params_random = {
-    ("random_data", "random", "none", 3, 3, 1, 1, 100),
-    ("random_data_2_ppd", "random", "none", 3, 3, 2, 2, 100),
+    ("random_1000", "random_1000", no_modify, 3, 3, 1, 1, 100),
+    # ("random_1000_2_ppd", "random_1000", no_modify, 3, 3, 2, 2, 100),  # TODO: This test is flaky
 }
 
 
-# TODO: Fix for color depths 2 and 3
 @pytest.mark.parametrize('execution_number', range(RANDOM_TEST_TRIALS))
 @pytest.mark.parametrize(
     "color_depth",
-    range(1, 2))
+    COLOR_DEPTH_RANGE)
 @pytest.mark.parametrize(
     "test_name,"
     "text_index,"
-    "image_alteration,"
+    "modify,"
     "page_height,"
     "page_width,"
     "dot_fill_pixels,"
@@ -40,7 +44,7 @@ def test_e2e_random(execution_number,
                     tmpdir,
                     test_name,
                     text_index,
-                    image_alteration,
+                    modify,
                     color_depth,
                     page_height,
                     page_width,
@@ -50,14 +54,13 @@ def test_e2e_random(execution_number,
                     ):
 
     # TODO: Test a random unicode string case
-    def get_random_string():
-        return ''.join(chr(random.randint(0, 2 ** 7 - 1)) for i in range(1000))
 
-    texts['random'] = get_random_string()
+    texts['random_1000'] = get_random_string(1000)
+
     test_e2e(tmpdir,
              test_name,
              text_index,
-             image_alteration,
+             modify,
              color_depth,
              page_height,
              page_width,
@@ -69,16 +72,22 @@ def test_e2e_random(execution_number,
 
 # Params: Test Name, Colors, Height, Width, DFP, PPD, DPI, Text index
 params = [
-    ("standard", "lorem", "none", 11, 8.5, 1, 1, 100),
-    ("smaller_page", "lorem", "none", 3, 3, 1, 1, 100),
-    ("2_ppd_1_dfp", "lorem", "none", 3, 3, 1, 2, 100),
-    ("4_ppd_4_dfp", "lorem", "none", 3, 3, 4, 4, 100),
-    ("150_dpi", "lorem", "none", 3, 3, 1, 1, 150),
-    ("blur_2", "lorem", "gaussian_blur0.2", 3, 3, 1, 1, 100),
-    ("blur_2_dfp_2", "lorem", "gaussian_blur0.2", 3, 3, 2, 2, 100),
-    ("rotate_0.1", "lorem", "rotate0.1", 3, 3, 4, 4, 100),
-    ("shift_10", "lorem", "shift10", 3, 3, 1, 1, 100),  # TODO: Test more data rows here, e.g. a bigger string
-    # ("resize_2.1x", "lorem", "resize2.1x", 3, 3, 1, 1, 100), # TODO: Fix this, decoding needs bilinear interpolation
+    ("ansi_letter", "lorem", no_modify, 11, 8.5, 1, 1, 100),
+    ("smaller_page", "lorem", no_modify, 3, 3, 1, 1, 100),
+    ("multiple_rows", "random_const_3000", no_modify, 3, 3, 1, 1, 100),
+    ("multiple_pages", "random_const_20000", no_modify, 3, 3, 1, 1, 100),  # TODO: This works, but pages not filled in
+    ("2_ppd_1_dfp", "lorem", no_modify, 3, 3, 1, 2, 100),
+    ("4_ppd_4_dfp", "lorem", no_modify, 3, 3, 4, 4, 100),
+    ("150_dpi", "lorem", no_modify, 3, 3, 1, 1, 150),
+    ("blur_0.2", "lorem", modify(gaussian_blur_image, 0.2), 3, 3, 1, 1, 100),
+    ("blur_0.2_dfp_2", "lorem", modify(gaussian_blur_image, 0.2), 3, 3, 2, 2, 100),
+    ("rotate_0.2", "lorem", modify(rotate_image, 0.2), 3, 3, 4, 4, 100),
+    ("shift_10", "lorem", modify(shift_image, 10), 3, 3, 1, 1, 100),
+    ("offset_partial", "lorem", modify(offset_partial, 3.045, 2.981), 3, 3, 1, 1, 100),
+    ("resize_2x", "lorem", modify(resize_image, 2, 2), 3, 3, 1, 1, 100),
+    ("resize_2.5x", "lorem", modify(resize_image, 2.5, 2.5), 3, 3, 1, 1, 100),
+    ("resize_3x", "lorem", modify(resize_image, 3, 3), 3, 3, 1, 1, 100),
+    ("resize_2.5x_3x", "lorem", modify(resize_image, 2.5, 3), 3, 3, 1, 1, 100),
 ]
 
 
@@ -88,7 +97,7 @@ params = [
 @pytest.mark.parametrize(
     "test_name,"
     "text_index,"
-    "image_alteration,"
+    "modify,"
     "page_height,"
     "page_width,"
     "dot_fill_pixels,"
@@ -98,7 +107,7 @@ params = [
 def test_e2e(tmpdir,
              test_name,
              text_index,  # Use text index, not text, to avoid an extremely large PyTest test name
-             image_alteration,
+             modify,
              color_depth,
              page_height,
              page_width,
@@ -110,6 +119,10 @@ def test_e2e(tmpdir,
 
     :param test_name Test name, to make it easier to associate pytest results with the test they belong to.
     """
+
+    in_file_name = "text.txt"
+    out_file_name = "out.txt"
+    metadata_file_name = "metadata.txt"
 
     border_top = 0.2
     border_bottom = border_left = border_right = 0.1
@@ -143,7 +156,7 @@ def test_e2e(tmpdir,
         True)
 
     # Alterations
-    desired_wildcard = image_alterations[image_alteration](tmpdir)
+    desired_wildcard = modify(tmpdir)
 
     # Decoding
     out_file = tmpdir.join(out_file_name)

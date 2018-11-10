@@ -165,7 +165,7 @@ class SectorDecoder(Sector):
         self.colorDepth = colorDepth
         self.eccRate = eccRate
         self.dataRowCount, self.eccRowCount, self.rsBlockSizes, self.dataBlockSizes, self.eccBlockSizes = \
-            Sector.getBlockSizes(height, width, colorDepth, eccRate)
+            Sector.get_block_sizes(height, width, colorDepth, eccRate)
 
         for row in range(0, height * width, width):
             channels = channelsList[row: row + width]
