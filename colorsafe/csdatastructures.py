@@ -1,6 +1,6 @@
 import math
-import constants
-import utils
+from . import constants
+from . import utils
 
 
 class ColorChannels:
@@ -48,7 +48,7 @@ class ColorChannels:
         return (self.red, self.green, self.blue)
 
     def getAverageShade(self):
-        return (self.red + self.green + self.blue) / constants.ColorChannels
+        return (self.red + self.green + self.blue) // constants.ColorChannels
 
 
 class Dot:
@@ -92,7 +92,7 @@ class DotRow:
 
     @staticmethod
     def getMaxRowBytes(colorDepth, width):
-        return colorDepth * width / constants.ByteSize
+        return colorDepth * width // constants.ByteSize
 
     @staticmethod
     def getMagicRowBytes(colorDepth, width):
@@ -114,7 +114,7 @@ class Sector:
             if bytes <= max_bytes_per_block:
                 return [bytes]
             else:
-                block_sizes = [max_bytes_per_block] * (bytes / max_bytes_per_block)
+                block_sizes = [max_bytes_per_block] * (bytes // max_bytes_per_block)
 
                 remainder = bytes % max_bytes_per_block
                 if remainder != 0:
@@ -127,12 +127,12 @@ class Sector:
         data_row_count = Sector.getDataRowCount(height, ecc_rate)
         ecc_row_count = height - constants.MagicRowHeight - data_row_count
 
-        total_bytes = (data_row_count + ecc_row_count) * width * color_depth / constants.ByteSize
-        data_bytes = data_row_count * width * color_depth / constants.ByteSize
-        ecc_bytes = ecc_row_count * width * color_depth / constants.ByteSize
+        total_bytes = (data_row_count + ecc_row_count) * width * color_depth // constants.ByteSize
+        data_bytes = data_row_count * width * color_depth // constants.ByteSize
+        ecc_bytes = ecc_row_count * width * color_depth // constants.ByteSize
 
-        data_row_percentage = float(data_row_count) / (height - constants.MagicRowHeight)
-        ecc_row_percentage = float(ecc_row_count) / (height - constants.MagicRowHeight)
+        data_row_percentage = float(data_row_count) // (height - constants.MagicRowHeight)
+        ecc_row_percentage = float(ecc_row_count) // (height - constants.MagicRowHeight)
 
         max_data_block_size = int(round(data_row_percentage * constants.RSBlockSizeMax))
         max_ecc_block_size = int(round(ecc_row_percentage * constants.RSBlockSizeMax))
@@ -146,7 +146,7 @@ class Sector:
     @staticmethod
     def getDataRowCount(height, eccRate):
         return int(math.floor(
-            (height - constants.MagicRowHeight) / (1 + eccRate)))
+            (height - constants.MagicRowHeight) // (1 + eccRate)))
 
 
 class Metadata:

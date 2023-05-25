@@ -1,11 +1,12 @@
+*.bak
 *.egg-info
 *.pyc
 *.swp
+.DS_STORE
 .cache
+.idea
+.pytest_cache
 MANIFEST
 build
 dist
 ignore
-.DS_STORE
-.idea
-.pytest_cache

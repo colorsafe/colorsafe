@@ -15,7 +15,7 @@ from test_utils import texts, get_random_string, gaussian_blur_image, modify, sh
 
 COLOR_DEPTH_MIN = 1
 COLOR_DEPTH_MAX = 3
-COLOR_DEPTH_RANGE = range(COLOR_DEPTH_MIN, COLOR_DEPTH_MAX + 1)
+COLOR_DEPTH_RANGE = list(range(COLOR_DEPTH_MIN, COLOR_DEPTH_MAX + 1))
 DEBUG = False
 
 RANDOM_TEST_TRIALS = 2
@@ -26,7 +26,7 @@ params_random = {
 }
 
 
-@pytest.mark.parametrize('execution_number', range(RANDOM_TEST_TRIALS))
+@pytest.mark.parametrize('execution_number', list(range(RANDOM_TEST_TRIALS)))
 @pytest.mark.parametrize(
     "color_depth",
     COLOR_DEPTH_RANGE)

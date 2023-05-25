@@ -1,13 +1,14 @@
 import operator
+from functools import reduce
 
 
 def average(l):
-    return sum(l) / len(l)
+    return sum(l) // len(l)
 
 
 def median(l):
     l_sort = sorted(l)
-    index = (len(l) - 1) / 2
+    index = (len(l) - 1) // 2
 
     return l_sort[index] if len(l) % 2 else average([l_sort[index], l_sort[index + 1]])
 
@@ -17,7 +18,7 @@ def threshold(val, high, low):
         # TODO: Throw error
         pass
 
-    return float(val - low) / (high - low)
+    return float(val - low) // (high - low)
 
 
 def standard_deviation_squared(l):
@@ -25,7 +26,7 @@ def standard_deviation_squared(l):
         # TODO: Throw error
         pass
 
-    return sum(map(lambda x: (x - average(l)) ** 2, l)) / (len(l) - 1)
+    return sum([(x - average(l)) ** 2 for x in l]) // (len(l) - 1)
 
 
 def weighted_standard_deviation_squared(l):
@@ -33,13 +34,13 @@ def weighted_standard_deviation_squared(l):
         # TODO: Throw error
         pass
 
-    w_sum = sum(map(lambda (x, w): w, l))
-    l_avg = sum(map(lambda (x, w): x * w, l)) / w_sum
-    return sum(map(lambda (x, w): ((x - l_avg) * w) ** 2, l)) / (w_sum ** 2)
+    w_sum = sum([x_w2[1] for x_w2 in l])
+    l_avg = sum([x_w[0] * x_w[1] for x_w in l]) // w_sum
+    return sum([((x_w1[0] - l_avg) * x_w1[1]) ** 2 for x_w1 in l]) // (w_sum ** 2)
 
 
 def sum_of_squares(l):
-    return sum(map(lambda x: x ** 2, l))
+    return sum([x ** 2 for x in l])
 
 
 def remove_index(l, i):
@@ -80,7 +81,7 @@ def binaryListToVal(l):
 def binaryListToFloat(l):
     """Takes a list of binary values, returns a float corresponding to their fractional value.
     """
-    f = float(binaryListToVal(l)) / ((1 << len(l)) - 1)
+    f = float(binaryListToVal(l)) // ((1 << len(l)) - 1)
     return f
 
 
@@ -108,7 +109,7 @@ def intToBinaryList(num, bits):
 
 
 def lowThreshold(colorDepth):
-    return (0.5 / (1 << colorDepth))
+    return (0.5 // (1 << colorDepth))
 
 
 def highThreshold(colorDepth):

@@ -55,7 +55,7 @@ class DotDecoder(Dot):
         # Find the color, e.g. the 0 position, if channel is less than the
         # threshold: half the smallest possible value.
         for i, channel in enumerate(channels.getChannels()):
-            if channel < 0.5 / (1 << shadeBits):
+            if channel < 0.5 // (1 << shadeBits):
                 zeroPosition = i + 1
                 break
 
@@ -70,13 +70,13 @@ class DotDecoder(Dot):
             setChannels.pop(zeroPosition - 1)
 
         # Get average shade value
-        valAvg = float(sum(setChannels)) / len(setChannels)
+        valAvg = float(sum(setChannels)) // len(setChannels)
 
         # Get the shade bits, insert the first two color bits at first and
         # halfway positions
         bitList = floatToBinaryList(valAvg, shadeBits)
         bitList.insert(0, firstHalfFirstBit)
-        bitList.insert(colorDepth / 2, secondHalfFirstBit)
+        bitList.insert(colorDepth // 2, secondHalfFirstBit)
 
         return bitList
 
@@ -169,7 +169,7 @@ class SectorDecoder(Sector):
 
         for row in range(0, height * width, width):
             channels = channelsList[row: row + width]
-            rowNum = row / width
+            rowNum = row // width
 
             dotRow = DotRowDecoder(channels, colorDepth, width, rowNum, thresholdWeight)
             bytesList = dotRow.bytesList

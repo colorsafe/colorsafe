@@ -1,9 +1,9 @@
 #!/usr/bin/python
 
-from decoder.csdecoder_manager import ColorSafeDecoder
-from encoder.csencoder_manager import ColorSafeEncoder
+from .decoder.csdecoder_manager import ColorSafeDecoder
+from .encoder.csencoder_manager import ColorSafeEncoder
 import argparse
-import constants
+from . import constants
 
 
 def encode(args):
@@ -97,6 +97,7 @@ def main():
     decoder_parser.set_defaults(func=decode)
 
     args = parser.parse_args()
+
     args.func(args)
 
 

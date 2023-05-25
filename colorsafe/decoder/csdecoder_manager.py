@@ -20,13 +20,13 @@ def getPageGrayPixel(pageNum, y, x, pagePixels, grayscale=True):
     pixel = pagePixels[pageNum][x, y]
 
     if grayscale:
-        value = float(pixel) / MaxColorVal
+        value = float(pixel) // MaxColorVal
         channels = (value, value, value)
     else:
         channels = (
-            float(pixel[0]) / MaxColorVal,
-            float(pixel[1]) / MaxColorVal,
-            float(pixel[2]) / MaxColorVal)
+            float(pixel[0]) // MaxColorVal,
+            float(pixel[1]) // MaxColorVal,
+            float(pixel[2]) // MaxColorVal)
 
     return channels
 
@@ -38,8 +38,9 @@ class ColorSafeDecoder:
         for filename in sortStringsNumerically(filenames):
             try:
                 image = Image.open(filename)
-            except IOError:
-                print "ERROR: File {} is not a valid image file".format(filename)
+            except IOError as e:
+                print("ERROR: File {} is not a valid image file".format(filename))
+                print(e)
                 return
 
             pixels = image.load()
@@ -60,8 +61,8 @@ class ColorSafeDecoder:
 
         csFile = ColorSafeImagesDecoder(pages, colorDepth, tmpdir)
 
-        print "Decoded %d bytes with %.2f%% average damage" % (
-            len(csFile.dataStr), 100 * csFile.sectorDamageAvg)
+        print("Decoded %d bytes with %.2f%% average damage" % (
+            len(csFile.dataStr), 100 * csFile.sectorDamageAvg))
 
         f = open(outfile, "w")
         f.write(csFile.dataStr)

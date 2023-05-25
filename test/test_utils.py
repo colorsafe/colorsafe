@@ -12,12 +12,12 @@ from colorsafe.constants import MagicByte
 
 def get_random_string(n, seed=None):
     random.seed(seed)
-    return ''.join(chr(random.randint(0, 2 ** 7 - 1)) for _ in xrange(n))
+    return ''.join(chr(random.randint(0, 2 ** 7 - 1)) for _ in range(n))
 
 
 def get_random_alphanumeric_string(n, seed=None):
     random.seed(seed)
-    return ''.join(random.choice(string.ascii_letters + string.digits) for _ in xrange(n))
+    return ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(n))
 
 
 texts = {"lorem":
@@ -58,7 +58,7 @@ def modify_tmpdir(tmpdir, alter, *args):
             altered_file_name = filename.replace(out_image_name_prefix, altered_image_name_prefix)
             out.convert(img.mode).save(altered_file_name)
         except IOError:
-            print "ERROR: File {} is not a valid image file".format(filename)
+            print("ERROR: File {} is not a valid image file".format(filename))
             return
 
     return altered_image_name_wildcard

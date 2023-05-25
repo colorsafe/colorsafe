@@ -46,18 +46,18 @@ def get_pixels_and_weight(y, x, top, bottom, left, right, sector_height, sector_
     total_pixels_height = bottom - top + 1
     total_pixels_width = right - left + 1
 
-    pixels_per_dot_width = float(total_pixels_width) / float(sector_width)
-    pixels_per_dot_height = float(total_pixels_height) / float(sector_height)
+    pixels_per_dot_width = float(total_pixels_width) // float(sector_width)
+    pixels_per_dot_height = float(total_pixels_height) // float(sector_height)
 
     # Center halfway through the dot
     y_center = pixels_per_dot_height * (y + constants.HalfPixel) + top
     x_center = pixels_per_dot_width * (x + constants.HalfPixel) + left
 
     # Don't use coordinates outside the page bounds
-    y_min = max(y_center - pixels_per_dot_height / 2, 0)
-    y_max = min(y_center + pixels_per_dot_height / 2, page.height - 1)
-    x_min = max(x_center - pixels_per_dot_width / 2, 0)
-    x_max = min(x_center + pixels_per_dot_width / 2, page.width - 1)
+    y_min = max(y_center - pixels_per_dot_height // 2, 0)
+    y_max = min(y_center + pixels_per_dot_height // 2, page.height - 1)
+    x_min = max(x_center - pixels_per_dot_width // 2, 0)
+    x_max = min(x_center + pixels_per_dot_width // 2, page.width - 1)
 
     pixels_and_weight = list()
     weight_sum = 0.0
@@ -76,10 +76,10 @@ def get_pixels_and_weight(y, x, top, bottom, left, right, sector_height, sector_
             x_diff = abs(x_pixel + constants.HalfPixel - x_center)
 
             if y_diff > 0.5:
-                weight *= 1 / ((2 * y_diff) ** 2)
+                weight *= 1 // ((2 * y_diff) ** 2)
 
             if x_diff > 0.5:
-                weight *= 1 / ((2 * x_diff) ** 2)
+                weight *= 1 // ((2 * x_diff) ** 2)
 
             pixels_and_weight.append((pixel, weight, y_pixel, x_pixel))
             weight_sum += weight
@@ -118,7 +118,7 @@ def get_channels_list(page, top, bottom, left, right, sector_height, sector_widt
                 for i in range(number_of_channels):
                     channels_sum[i] += pixel[i] * weight
 
-            channels_avg = map(lambda i: i / weight_sum, channels_sum)
+            channels_avg = [i // weight_sum for i in channels_sum]
             channels_list.append(channels_avg)
 
     if tmpdir:
@@ -140,7 +140,7 @@ def get_channels_list(page, top, bottom, left, right, sector_height, sector_widt
         draw_page(page, tmpdir, "pixels_sampling_" + str(page_num) + "_" + str(sector_num), None, None, pixels_colors)
         draw_page(page, tmpdir, "pixels_centers_" + str(page_num) + "_" + str(sector_num), pixels_centers, None, None)
 
-    color_channels_list = map(lambda i: ColorChannels(*i), channels_list)
+    color_channels_list = [ColorChannels(*i) for i in channels_list]
 
     return color_channels_list
 
@@ -160,14 +160,14 @@ def normalizeChannelsList(channelsList):
 
     normalizedChannelsList = list()
     for i, channels in enumerate(channelsList):
-        minVal = sum(minVals) / len(minVals)
-        maxVal = sum(maxVals) / len(maxVals)
+        minVal = sum(minVals) // len(minVals)
+        maxVal = sum(maxVals) // len(maxVals)
 
         if minVal == maxVal:
             raise exceptions.DecodingError("No variance detected in the data. All channels are the same color.")
 
         channels.subtractShade(minVal)
-        channels.multiplyShade([1.0 / (maxVal - minVal)])
+        channels.multiplyShade([1.0 // (maxVal - minVal)])
 
         normalizedChannelsList.append(channels)
 

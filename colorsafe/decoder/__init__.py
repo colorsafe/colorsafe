@@ -1,1 +1,1 @@
-from csdecoder_manager import ColorSafeDecoder
+from .csdecoder_manager import ColorSafeDecoder

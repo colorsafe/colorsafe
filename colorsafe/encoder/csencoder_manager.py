@@ -76,7 +76,7 @@ class ColorSafePdfFile:
                                           filename,
                                           fileExtension)
 
-        print "Max data per page:", str(csImages.csFile.maxData / 1000), "kB"
+        print("Max data per page:", str(csImages.csFile.maxData // 1000), "kB")
 
         grayscale = colorDepth == 1
 
@@ -110,7 +110,7 @@ class ColorSafePdfFile:
             if not saveImages:
                 os.remove(f)
             else:
-                print "Saved", f
+                print("Saved", f)
 
     def getPageProperties(self):
         # Full working height, including all regions outside of borders
@@ -130,7 +130,7 @@ class ColorSafePdfFile:
         headerPaddingPixels = self.headerPadding * self.printerDpi * self.pixelsPerDot
         pdfWidth = self.csImages.workingWidthPixels
         pdfHeight = self.csImages.workingHeightPixels + headerPaddingPixels
-        headerYVal = pdfHeight - headerPaddingPixels / 2
+        headerYVal = pdfHeight - headerPaddingPixels // 2
 
         pdfFilename = os.path.join(
             self.outPath,
@@ -153,7 +153,7 @@ class ColorSafePdfFile:
             # Move to next page
             c.showPage()
 
-        print "Saved", pdfFilename
+        print("Saved", pdfFilename)
         c.save()
 
 

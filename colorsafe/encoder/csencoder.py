@@ -34,8 +34,8 @@ class DotEncoder(Dot):
         """Primary mode: Divide list into 2. Each half's first bit represents color, the rest combined represent shade.
         Return color channels. Thus, the shade alone represents (colorDepth-2) bits of information.
         """
-        firstHalf = bitList[0:len(bitList) / 2]
-        secondHalf = bitList[len(bitList) / 2:len(bitList)]
+        firstHalf = bitList[0:len(bitList) // 2]
+        secondHalf = bitList[len(bitList) // 2:len(bitList)]
 
         firstHalfFirstBit = firstHalf.pop(0)
         secondHalfFirstBit = secondHalf.pop(0)
@@ -65,7 +65,7 @@ class DotEncoder(Dot):
         G, or B. With 1-color channel, list is not divided, and the entire list corresponds to the shade of gray.
         """
         channelVals = list()
-        bpc = len(bitList) / channelNum  # Bits per channel
+        bpc = len(bitList) // channelNum  # Bits per channel
 
         for b in range(0, len(bitList), bpc):
             channelBits = bitList[b: b + bpc]
@@ -181,7 +181,7 @@ class SectorEncoder(Sector):
         """Takes in a list of data, returns a list of dataRows
         """
         self.dataRows = list()
-        bytesPerRow = self.width * self.colorDepth / constants.ByteSize
+        bytesPerRow = self.width * self.colorDepth // constants.ByteSize
 
         for row in range(self.dataRowCount):
             minIndex = dataStart + row * bytesPerRow
@@ -198,7 +198,7 @@ class SectorEncoder(Sector):
     def putECCData(self, dataStart=0):
         eccData = list()
 
-        totalBytes = (self.height - 1) * self.width / constants.ByteSize
+        totalBytes = (self.height - 1) * self.width // constants.ByteSize
         for i, rsBlockLength in enumerate(self.rsBlockSizes):
             messageLength = self.dataBlockSizes[i]
             errorLength = self.eccBlockSizes[i]
@@ -232,7 +232,7 @@ class SectorEncoder(Sector):
             self.dataRowCount)
 
         self.eccRows = [eccMagicRow]
-        bytesPerRow = self.width * self.colorDepth / constants.ByteSize
+        bytesPerRow = self.width * self.colorDepth // constants.ByteSize
         for row in range(self.eccRowCount):
             insertData = eccData[row * bytesPerRow: (row + 1) * bytesPerRow]
             insertRow = DotRowEncoder(insertData, self.colorDepth, self.width, row)
@@ -295,7 +295,7 @@ class MetadataSectorEncoder(MetadataSector, SectorEncoder):
 
         # Format metadata, interleave lists and 0-byte join
         # TODO: Encode ints not in ascii
-        for (key, value) in metadata.items():
+        for (key, value) in list(metadata.items()):
             kvString = str(key) + chr(constants.Byte00) + \
                 (str(value) if value else "") + chr(constants.Byte00)
 
@@ -365,7 +365,7 @@ class PageEncoder(Page):
             (len(self.dataSectors) + len(self.metadataSectors))
 
         random.seed(self.pageNumber)
-        allMetadataPagePositions = range(0, len(self.sectors))
+        allMetadataPagePositions = list(range(0, len(self.sectors)))
         random.shuffle(allMetadataPagePositions)
         self.metadataSectorsPositions = allMetadataPagePositions[: len(
             self.metadataSectors)]
@@ -419,7 +419,7 @@ class ColorSafeFileEncoder(ColorSafeFile):
         self.dataSectors = list()
 
         self.dataPerSector = self.sectorWidth * self.colorDepth * \
-            self.dataRowCount / constants.ByteSize
+            self.dataRowCount // constants.ByteSize
 
         for dataStart in range(0, len(self.data), self.dataPerSector):
             # TODO: Setting data into Sector in place (using Sector's dataStart)
@@ -447,7 +447,7 @@ class ColorSafeFileEncoder(ColorSafeFile):
         csCreationTime = int(time.time())
 
         # TODO: Must include source! Change this implementation
-        crc32CCheck = binascii.crc32("0")
+        crc32CCheck = binascii.crc32(b'0')
 
         fileSize = len(self.data)  # In bytes
 
@@ -477,7 +477,7 @@ class ColorSafeFileEncoder(ColorSafeFile):
 
         # Reverse sort metadata that has no required order
         metadataRequiredNoOrderKeys = set(
-            [key for (key, value) in self.metadata.items()]) - set(Metadata.RequiredInOrder)
+            [key for (key, value) in list(self.metadata.items())]) - set(Metadata.RequiredInOrder)
         metadataRequiredNoOrder = [(key, self.metadata[key])
                                    for key in metadataRequiredNoOrderKeys]
         metadataRequiredNoOrder.sort(key=lambda tup: -len(str(tup)))
@@ -537,7 +537,7 @@ class ColorSafeFileEncoder(ColorSafeFile):
         # It is valid only for m+d>1, so use max(equation,1) to ensure it
         # always returns one or more pages.
         totalPages = max(
-            int(math.ceil(float(dsCount + msCount - 1) / (self.sectorsPerPage - 1))), 1)
+            int(math.ceil(float(dsCount + msCount - 1) // (self.sectorsPerPage - 1))), 1)
         totalMetadataSectors = totalPages + msCount - 1
 
         self.totalSectors = dsCount + totalMetadataSectors
@@ -548,11 +548,11 @@ class ColorSafeFileEncoder(ColorSafeFile):
         totalMetadataSectors += paddingMetadataSectors
 
         # Get metadataPositions dict: { pageNum: metadataSectorsOnPage, ... }
-        metadataPositions = range(totalPages)
+        metadataPositions = list(range(totalPages))
         random.seed(0)
         random.shuffle(metadataPositions)
         metadataPositions = metadataPositions * \
-            int(math.ceil(totalMetadataSectors / totalPages))
+            int(math.ceil(totalMetadataSectors // totalPages))
         metadataPositions = metadataPositions[:totalMetadataSectors]
         metadataPositions = {
             i: metadataPositions.count(i) for i in metadataPositions}

@@ -1,1 +1,1 @@
-from csencoder_manager import ColorSafeEncoder
+from .csencoder_manager import ColorSafeEncoder

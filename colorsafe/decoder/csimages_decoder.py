@@ -47,7 +47,7 @@ class ColorSafeImagesDecoder(ColorSafeImages):
             sectorDamage = list()
             for each_bounds in bounds:
                 sectorNum += 1
-                # perc = str(int(100.0 * sectorNum / (sectorsHorizontal*sectorsVertical))) + "%"
+                # perc = str(int(100.0 * sectorNum // (sectorsHorizontal*sectorsVertical))) + "%"
 
                 channelsList = get_normalized_channels_list(page, each_bounds, sectorHeight, sectorWidth,
                                                             page_num, sectorNum, tmpdir)
@@ -87,7 +87,7 @@ class ColorSafeImagesDecoder(ColorSafeImages):
                     metadataStr += str(sectorNum) + "\n" + outData + "\n\n"
 
         if len(sectorDamage):
-            self.sectorDamageAvg = sum(sectorDamage) / len(sectorDamage)
+            self.sectorDamageAvg = sum(sectorDamage) // len(sectorDamage)
         else:
             self.sectorDamageAvg = 1.0
 
@@ -130,7 +130,7 @@ class ColorSafeImagesDecoder(ColorSafeImages):
         #     shadeBuckets[shadeMaximaRight])
 
         # A good default, in case of a single maxima, or two very close
-        shadeMinima = (shadeMaximaLeft + shadeMaximaRight) / 2
+        shadeMinima = (shadeMaximaLeft + shadeMaximaRight) // 2
 
         # TODO: Re-enable, this improves threshold finding for scanned images
         # for i in range(shadeMaximaLeft + 1, shadeMaximaRight):
@@ -138,7 +138,7 @@ class ColorSafeImagesDecoder(ColorSafeImages):
         #         shadeMinimaVal = shadeBuckets[i]
         #         shadeMinima = i
 
-        thresholdWeight = float(shadeMinima) / bucketNum
+        thresholdWeight = float(shadeMinima) // bucketNum
 
         return thresholdWeight
 
@@ -179,14 +179,14 @@ class ColorSafeImagesDecoder(ColorSafeImages):
                 # More errors than can be corrected. Set damage to
                 # total number of blocks.
                 except RSCodecError:
-                    damage = dataRows * sectorWidth / constants.ByteSize
+                    damage = dataRows * sectorWidth // constants.ByteSize
 
             correctedData += correctedStr
 
             dindex += dbs
             eindex += ebs
 
-        sectorDamage = float(damage) / (dataRows * sectorWidth / constants.ByteSize)
+        sectorDamage = float(damage) // (dataRows * sectorWidth // constants.ByteSize)
 
         return correctedData, sectorDamage
 

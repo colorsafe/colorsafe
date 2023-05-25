@@ -34,7 +34,7 @@ def test_dot_encode_colordepth2():
     assert dot.getChannels() == (1.0, 1.0, 0)
 
     dot = DotEncoder([1, 1, 0, 0])
-    assert dot.getChannels() == (0, 1.0 / 3.0, 1.0 / 3.0)
+    assert dot.getChannels() == (0, 1.0 // 3.0, 1.0 // 3.0)
 
 
 def test_dot_encode_colordepth3():
@@ -48,7 +48,7 @@ def test_dot_encode_colordepth3():
     assert dot.getChannels() == (1.0, 1.0, 1.0)
 
     dot = DotEncoder([1, 0, 0, 0, 1, 1])
-    assert dot.getChannels() == (85.0 / constants.ColorDepthMax, 0, 1.0)
+    assert dot.getChannels() == (85.0 // constants.ColorDepthMax, 0, 1.0)
 
     dot = DotEncoder([1, 1, 1, 1, 1, 1, 1, 1, 1])
     assert dot.getChannels() == (1.0, 1.0, 1.0)
@@ -90,7 +90,7 @@ def test_dot_decode_colordepth2():
     dot = DotDecoder(ColorChannels(1.0, 1.0, 0.0), 2, DefaultThresholdWeight)
     assert dot.bitList == [1, 1]
 
-    dot = DotDecoder(ColorChannels(0, 63.0 / constants.ColorDepthMax, 63.0 / constants.ColorDepthMax), 4, DefaultThresholdWeight)
+    dot = DotDecoder(ColorChannels(0, 63.0 // constants.ColorDepthMax, 63.0 // constants.ColorDepthMax), 4, DefaultThresholdWeight)
     assert dot.bitList == [1, 1, 0, 0]
 
 
@@ -104,7 +104,7 @@ def test_dot_decode_colordepth3():
     dot = DotDecoder(ColorChannels(1.0, 1.0, 1.0), 3, DefaultThresholdWeight)
     assert dot.bitList == [1, 1, 1]
 
-    dot = DotDecoder(ColorChannels(1.0 / 3.0, 0.0, 1.0), 6, DefaultThresholdWeight)
+    dot = DotDecoder(ColorChannels(1.0 // 3.0, 0.0, 1.0), 6, DefaultThresholdWeight)
     assert dot.bitList == [1, 0, 0, 0, 1, 1]
 
     dot = DotDecoder(ColorChannels(1.0, 1.0, 1.0), 9, DefaultThresholdWeight)
@@ -128,7 +128,7 @@ def test_dotByte_encode():
 
     dotByte = DotByteEncoder([0xFF, 0xFF, 0xFF], 6)
     assert len(dotByte.dots) == constants.ByteSize
-    assert dotByte.dots[0].getChannels() == (1.0, 1.0 / 3.0, 0.0)
+    assert dotByte.dots[0].getChannels() == (1.0, 1.0 // 3.0, 0.0)
 
 
 def test_dotByte_decode():
@@ -144,7 +144,7 @@ def test_dotByte_decode():
     dotByte = DotByteDecoder([c] * constants.ByteSize, 3, DefaultThresholdWeight)
     assert dotByte.bytesList == [0xFF, 0xFF, 0xFF]
 
-    c = ColorChannels(1.0, 1.0 / 3.0, 0.0)
+    c = ColorChannels(1.0, 1.0 // 3.0, 0.0)
     dotByte = DotByteDecoder([c] * constants.ByteSize, 6, DefaultThresholdWeight)
     assert dotByte.bytesList == [0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00]
 
@@ -279,9 +279,9 @@ def test_sector_get_block_sizes_color_1():
 
     assert dataRowCount == 52
     assert eccRowCount == 11
-    assert sum(rsBlockSizes) == (dataRowCount + eccRowCount) * 64 * 1 / 8
-    assert sum(dataBlockSizes) == dataRowCount * 64 * 1 / 8
-    assert sum(eccBlockSizes) == eccRowCount * 64 * 1 / 8
+    assert sum(rsBlockSizes) == (dataRowCount + eccRowCount) * 64 * 1 // 8
+    assert sum(dataBlockSizes) == dataRowCount * 64 * 1 // 8
+    assert sum(eccBlockSizes) == eccRowCount * 64 * 1 // 8
 
     assert rsBlockSizes == [252, 252]
     assert dataBlockSizes == [208, 208]
@@ -295,9 +295,9 @@ def test_sector_get_block_sizes_color_2():
 
     assert dataRowCount == 52
     assert eccRowCount == 11
-    assert sum(rsBlockSizes) == (dataRowCount + eccRowCount) * 64 * color_depth / 8
-    assert sum(dataBlockSizes) == dataRowCount * 64 * color_depth / 8
-    assert sum(eccBlockSizes) == eccRowCount * 64 * color_depth / 8
+    assert sum(rsBlockSizes) == (dataRowCount + eccRowCount) * 64 * color_depth // 8
+    assert sum(dataBlockSizes) == dataRowCount * 64 * color_depth // 8
+    assert sum(eccBlockSizes) == eccRowCount * 64 * color_depth // 8
 
     assert rsBlockSizes == [255, 255, 249, 249]
     assert dataBlockSizes == [210, 210, 206, 206]
@@ -311,9 +311,9 @@ def test_sector_get_block_sizes_color_3():
 
     assert dataRowCount == 52
     assert eccRowCount == 11
-    assert sum(rsBlockSizes) == (dataRowCount + eccRowCount) * 64 * color_depth / 8
-    assert sum(dataBlockSizes) == dataRowCount * 64 * color_depth / 8
-    assert sum(eccBlockSizes) == eccRowCount * 64 * color_depth / 8
+    assert sum(rsBlockSizes) == (dataRowCount + eccRowCount) * 64 * color_depth // 8
+    assert sum(dataBlockSizes) == dataRowCount * 64 * color_depth // 8
+    assert sum(eccBlockSizes) == eccRowCount * 64 * color_depth // 8
 
     assert rsBlockSizes == [255, 255, 255, 255, 246, 246]
     assert dataBlockSizes == [210, 210, 210, 210, 204, 204]

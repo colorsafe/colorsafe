@@ -7,6 +7,7 @@ from colorsafe.debugutils import draw_page
 
 from colorsafe import constants, defaults, exceptions, utils
 from colorsafe.decoder.csdecoder_getchannels import get_pixels_and_weight
+from functools import reduce
 
 
 def get_data_bounds(page, sector_height, sector_width, gap_size, page_num, tmpdir):
@@ -22,8 +23,8 @@ def get_data_bounds(page, sector_height, sector_width, gap_size, page_num, tmpdi
 
     for top_temp, bottom_temp, left_temp, right_temp in bounds:
 
-        height_per_dot = float(bottom_temp - top_temp + 1) / (sector_height + 2 * gap_size)
-        width_per_dot = float(right_temp - left_temp + 1) / (sector_width + 2 * gap_size)
+        height_per_dot = float(bottom_temp - top_temp + 1) // (sector_height + 2 * gap_size)
+        width_per_dot = float(right_temp - left_temp + 1) // (sector_width + 2 * gap_size)
 
         if height_per_dot < 1.0 or width_per_dot < 1.0:
             raise exceptions.DecodingError("Image has less than 1.0x resolution, cannot get all dots.")
@@ -66,13 +67,13 @@ def get_bounds(page, tmpdir):
     page_x_length = page_x_end - page_x_begin
 
     # TODO: Come up a better heuristic
-    vertical_page_subdivisions = 4 + max(page_y_length - 128, 0) / 128
-    horizontal_page_subdivisions = 4 + max(page_x_length - 128, 0) / 128
+    vertical_page_subdivisions = 4 + max(page_y_length - 128, 0) // 128
+    horizontal_page_subdivisions = 4 + max(page_x_length - 128, 0) // 128
 
     horizontal_sub_borders_all = list()
     for y_sub in range(vertical_page_subdivisions):
-        y_min = int(page_y_length * float(y_sub) / vertical_page_subdivisions) + page_y_begin
-        y_max = int(page_y_length * float(y_sub + 1) / vertical_page_subdivisions) + page_y_begin
+        y_min = int(page_y_length * float(y_sub) // vertical_page_subdivisions) + page_y_begin
+        y_max = int(page_y_length * float(y_sub + 1) // vertical_page_subdivisions) + page_y_begin
         x_min = page_x_begin
         x_max = page_x_end
         subset_page_bounds = (x_min, x_max, y_min, y_max)
@@ -81,8 +82,8 @@ def get_bounds(page, tmpdir):
 
     vertical_sub_borders_all = list()
     for x_sub in range(horizontal_page_subdivisions):
-        x_min = int(page_x_length * float(x_sub) / horizontal_page_subdivisions) + page_x_begin
-        x_max = int(page_x_length * float(x_sub + 1) / horizontal_page_subdivisions) + page_x_begin
+        x_min = int(page_x_length * float(x_sub) // horizontal_page_subdivisions) + page_x_begin
+        x_max = int(page_x_length * float(x_sub + 1) // horizontal_page_subdivisions) + page_x_begin
         y_min = page_y_begin
         y_max = page_y_end
         subset_page_bounds = (y_min, y_max, x_min, x_max)
@@ -187,7 +188,7 @@ def find_beginning_or_ending(page, vertical, reverse, perp_min_override=None, pe
     perp_max = perp_max_override if perp_max_override else page.width if vertical else page.height
 
     # TODO: Replace the first part with page.get_perpendicular_shade_averages()
-    along_range = range(along_min, along_max)
+    along_range = list(range(along_min, along_max))
     if reverse:
         along_range = along_range[::-1]
 
@@ -199,7 +200,7 @@ def find_beginning_or_ending(page, vertical, reverse, perp_min_override=None, pe
 
             shade = utils.average(page.get_pixel(y, x))
             perp_sum += shade
-        perp_avg = perp_sum / (perp_max - perp_min)
+        perp_avg = perp_sum // (perp_max - perp_min)
 
         if perp_avg < low_border_threshold:
             # Add a buffer equal to the max skew.
@@ -235,14 +236,14 @@ def find_border_points_subset_page(page, sub_bounds, vertical):
 
             shade = utils.average(page.get_pixel(y, x))
             perp_sum += shade
-        perp_avg = perp_sum / (perp_max - perp_min + 1)
+        perp_avg = perp_sum // (perp_max - perp_min + 1)
 
         # If the border has started, find a local darkest point in the border
         if border_started and perp_avg > last_perp_avg:
             border_started = False
 
             along_coordinate = along_iter - 1
-            perp_coordinate = (perp_max + perp_min) / 2
+            perp_coordinate = (perp_max + perp_min) // 2
 
             y = along_coordinate if vertical else perp_coordinate
             x = perp_coordinate if vertical else along_coordinate
@@ -255,7 +256,7 @@ def find_border_points_subset_page(page, sub_bounds, vertical):
         if perp_avg <= low_border_threshold:
             if along_iter == along_max:
                 along_coordinate = along_iter
-                perp_coordinate = (perp_max + perp_min) / 2
+                perp_coordinate = (perp_max + perp_min) // 2
 
                 y = along_coordinate if vertical else perp_coordinate
                 x = perp_coordinate if vertical else along_coordinate
@@ -300,7 +301,7 @@ def clean_and_infer_borders(sub_borders_all, vertical):
 
     along_diffs_flat = reduce(operator.concat, along_diffs_all)
     if len(along_diffs_flat) < 3:
-        return map(list, zip(*sub_borders_all))
+        return list(map(list, list(zip(*sub_borders_all))))
 
     along_diffs_flat_std = utils.standard_deviation_squared(along_diffs_flat)
 
@@ -341,7 +342,7 @@ def clean_and_infer_borders(sub_borders_all, vertical):
             index = merge_indexes[i]
             add = along_diffs_clean.pop(index-1)
             along_diffs_clean[index-1] += add
-            merge_indexes = map(lambda x: x - 1, merge_indexes)
+            merge_indexes = [x - 1 for x in merge_indexes]
 
             i += 1
 
@@ -351,9 +352,9 @@ def clean_and_infer_borders(sub_borders_all, vertical):
             new_along_points.append(sum(along_diffs_clean[:i+1]) + initial_points[all_iter])
 
         if vertical:
-            new_sub_borders = map(lambda x: (perp_points[all_iter], x), new_along_points)
+            new_sub_borders = [(perp_points[all_iter], x) for x in new_along_points]
         else:
-            new_sub_borders = map(lambda y: (y, perp_points[all_iter]), new_along_points)
+            new_sub_borders = [(y, perp_points[all_iter]) for y in new_along_points]
 
         new_sub_borders_all.append(new_sub_borders)
 
@@ -362,7 +363,7 @@ def clean_and_infer_borders(sub_borders_all, vertical):
 
 def transpose_and_infer(borders_all, vertical):
     max_val = 0
-    min_val = sys.maxint
+    min_val = sys.maxsize
     for borders in borders_all:
         for y, x in borders:
             max_val = max(y if vertical else x, max_val)
@@ -370,7 +371,7 @@ def transpose_and_infer(borders_all, vertical):
 
     approximate_max_sectors = 15.0
 
-    max_diff = (max_val - min_val) / (2.0 * approximate_max_sectors)
+    max_diff = (max_val - min_val) // (2.0 * approximate_max_sectors)
 
     transposed_list = list()
     for borders in borders_all:
@@ -464,12 +465,12 @@ def infer_border_angled_lines(border_points_list, vertical):
                 y2, x2 = border_points[j]
                 if vertical:
                     if y1 != y2:
-                        slope = float(x2 - x1) / float(y2 - y1)
+                        slope = float(x2 - x1) // float(y2 - y1)
                         slope_list.append(slope)
                         intercept_list.append(x1 - slope * y1)
                 else:
                     if x1 != x2:
-                        slope = float(y2 - y1) / float(x2 - x1)
+                        slope = float(y2 - y1) // float(x2 - x1)
                         slope_list.append(slope)
                         intercept_list.append(y1 - slope * x1)
 
@@ -488,9 +489,9 @@ def get_coordinates(v_value, h_value):
     vertical_slope, vertical_intercept = v_value
     horizontal_slope, horizontal_intercept = h_value
 
-    y = vertical_slope * horizontal_intercept + vertical_intercept / (
+    y = vertical_slope * horizontal_intercept + vertical_intercept // (
             1 - vertical_slope * horizontal_slope)
-    x = horizontal_slope * vertical_intercept + horizontal_intercept / (
+    x = horizontal_slope * vertical_intercept + horizontal_intercept // (
             1 - vertical_slope * horizontal_slope)
 
     return int(y), int(x)
@@ -502,13 +503,15 @@ def get_intersections(vertical_border_angled_lines, horizontal_border_angles_lin
     x = horizontal_slope * y + horizontal_intercept
 
     Solving for these gives the intersection points:
-    y = vertical_slope * horizontal_intercept + vertical_intercept / (1 - vertical_slope * horizontal_slope)
-    x = horizontal_slope * vertical_intercept + horizontal_intercept / (1 - vertical_slope * horizontal_slope)
+    y = vertical_slope * horizontal_intercept + vertical_intercept // (1 - vertical_slope * horizontal_slope)
+    x = horizontal_slope * vertical_intercept + horizontal_intercept // (1 - vertical_slope * horizontal_slope)
 
     :param vertical_border_angled_lines: List of vertical slopes and intercepts
     :param horizontal_border_angles_lines: List of horizontal slopes and intercepts
     :return: List of intersection points
     """
+
+    print(vertical_border_angled_lines, horizontal_border_angles_lines)
 
     intersections = list()
     for h_index, h_value in enumerate(horizontal_border_angles_lines[1:], 1):
@@ -642,11 +645,11 @@ def correct_one_data_bound(data_bound, sector_height, sector_width, page, right_
 
     top, bottom, left, right = data_bound
 
-    min_sum_weighted_stds = sys.maxint
+    min_sum_weighted_stds = sys.maxsize
     best_modifier = 0
 
     divisions = 4
-    modifier_possibilites = map(lambda i: float(i) / divisions, range(divisions + 1))
+    modifier_possibilites = [float(i) // divisions for i in range(divisions + 1)]
 
     for bound_modifier in modifier_possibilites:
         weighted_stds = list()
@@ -656,7 +659,7 @@ def correct_one_data_bound(data_bound, sector_height, sector_width, page, right_
         along_division = 4
 
         perp_max = sector_width if right_else_bottom else sector_height
-        for along_iter in range(0, along_max, along_max / along_division):
+        for along_iter in range(0, along_max, along_max // along_division):
             for perp_iter in range(0, perp_max):
                 x = perp_iter if right_else_bottom else along_iter
                 y = along_iter if right_else_bottom else perp_iter
@@ -675,7 +678,7 @@ def correct_one_data_bound(data_bound, sector_height, sector_width, page, right_
                                                                                           page)
 
                 for i in range(0, constants.ColorChannels):
-                    shade_and_weight = map(lambda (pixel, weight, _, __): (pixel[i], weight), pixels_and_weight)
+                    shade_and_weight = [(pixel_weight_____[0][i], pixel_weight_____[1]) for pixel_weight_____ in pixels_and_weight]
                     weighted_std = utils.weighted_standard_deviation_squared(shade_and_weight)
                     weighted_stds.append(weighted_std)
 

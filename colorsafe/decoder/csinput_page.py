@@ -50,7 +50,7 @@ class InputPage:
         :param reverse: True to traverse from most to least, False to traverse from least to most
         :return: A list of the perpendicular shade averages in the along direction within the bounds.
         """
-        along_range = range(least_along, most_along + 1)
+        along_range = list(range(least_along, most_along + 1))
         if reverse:
             along_range = along_range[::-1]
 
@@ -66,7 +66,7 @@ class InputPage:
 
                 perp_shade_sum += utils.average(self.get_pixel(y, x))
 
-            perp_shade_avg = perp_shade_sum / (most_perp - least_perp + 1)
+            perp_shade_avg = perp_shade_sum // (most_perp - least_perp + 1)
             perp_shade_avgs.append(perp_shade_avg)
 
         return perp_shade_avgs

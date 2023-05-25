@@ -55,10 +55,10 @@ class ColorSafeImagesEncoder(ColorSafeImages):
         # An integer representing the number of non-colored pixels representing
         # a dot for respective sides.
         dotWhitespace = self.pixelsPerDot - self.dotFillPixels
-        self.dotWhitespaceTop = int(math.floor(float(dotWhitespace) / 2))
-        self.dotWhitespaceBottom = int(math.ceil(float(dotWhitespace) / 2))
-        self.dotWhitespaceLeft = int(math.floor(float(dotWhitespace) / 2))
-        self.dotWhitespaceRight = int(math.ceil(float(dotWhitespace) / 2))
+        self.dotWhitespaceTop = int(math.floor(float(dotWhitespace) // 2))
+        self.dotWhitespaceBottom = int(math.ceil(float(dotWhitespace) // 2))
+        self.dotWhitespaceLeft = int(math.floor(float(dotWhitespace) // 2))
+        self.dotWhitespaceRight = int(math.ceil(float(dotWhitespace) // 2))
 
         # In dots, excluding overlapping borders
         self.sectorHeightTotal = self.sectorHeight + self.borderSize + 2 * self.gapSize
@@ -111,7 +111,7 @@ class ColorSafeImagesEncoder(ColorSafeImages):
 
             for si, sector in enumerate(page.sectors):
                 sx = si % page.sectorsHorizontal
-                sy = si / page.sectorsHorizontal
+                sy = si // page.sectorsHorizontal
 
                 gapHor = self.gapSize * (2 * sx + 1)
                 borderHor = self.borderSize * (sx + 1)
